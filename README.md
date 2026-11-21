@@ -32,7 +32,7 @@
 
 <a href="#introduction">Introduction</a> &nbsp;·&nbsp; <a href="#major-changes">Major changes</a> &nbsp;·&nbsp; <a href="#how-to-use">How to use</a> &nbsp;·&nbsp; <a href="#tests">Tests</a> &nbsp;·&nbsp; <a href="#license">License</a>
 
-<sub><a href="#design-goals">Design goals</a> &nbsp;·&nbsp; <a href="#test-results">Test results</a> &nbsp;·&nbsp; <a href="#download">Download</a> &nbsp;·&nbsp; <a href="#your-first-script">First script</a> &nbsp;·&nbsp; <a href="#common-calls">Common calls</a> &nbsp;·&nbsp; <a href="#build-it-yourself">Build it yourself</a></sub>
+<sub><a href="#design-goals">Design goals</a> &nbsp;·&nbsp; <a href="#how-it-works">How it works</a> &nbsp;·&nbsp; <a href="#test-results">Test results</a> &nbsp;·&nbsp; <a href="#download">Download</a> &nbsp;·&nbsp; <a href="#your-first-script">First script</a> &nbsp;·&nbsp; <a href="#common-calls">Common calls</a> &nbsp;·&nbsp; <a href="#build-it-yourself">Build it yourself</a></sub>
 
 </div>
 
@@ -52,11 +52,15 @@ Each profile keeps its own settings, cookies, logins and internet connection, an
 | Identity secured | Proxy, TLS handshake, graphics card and device values all describe the same person; TLS is Firefox 160's own, so it matches |
 | Profile-based identities | Each new profile gets a random real device, then keeps it; the built-in default profile is new every run |
 
-### Proxy
+### How it works
 
-Most of the work went into proxies. Every profile connects through its own proxy, with login, pasted in any of 5 common formats.
-The time zone and languages follow the proxy's country, so a Brazil proxy gives Portuguese and the São Paulo clock.
-Nothing goes around the proxy: WebRTC shows no address, DNS is looked up through the proxy, and if the proxy drops, pages stop loading instead of using your real connection.
+- **A private channel replaces the automation port.** Python and the browser talk over a Windows named pipe with a new random name each launch. It accepts one local connection, refuses remote ones, and opens no network port; the test checks that the usual automation port, 2828, stays closed.
+- **The control code is built into the browser.** The part that carries out your commands is compiled into the browser and runs with browser privileges, outside the page. No extension is installed and nothing is injected into pages.
+- **Your scripts run in a sandbox.** JavaScript you run with `tab.js()` sees the page, but the page can't see it.
+- **Input takes the real path.** Clicks and key presses enter through the browser window like input from the operating system, so pages receive trusted events. Mouse paths and typing are timed like a person's.
+- **Fingerprint values live in the engine.** Patched browser code reads each value from the profile's settings, which pages can't read, and returns it everywhere the value is asked for, workers included. There are no JavaScript overrides to find.
+- **The proxy is the only way out.** The proxy login travels over the private channel and is never written into browser settings. DNS goes through the proxy, WebRTC is limited to the proxy, and there is no fallback to your own connection.
+- **The clock follows the exit.** At start, the browser asks through the proxy where its traffic leaves, without opening a page, and sets the time zone and languages to match.
 
 ### Test results
 
