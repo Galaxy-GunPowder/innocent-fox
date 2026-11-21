@@ -135,4 +135,4 @@ MPL 2.0 &nbsp;·&nbsp; Not made or endorsed by Mozilla &nbsp;·&nbsp; <a href="N
 
 - My $50 and 10 hours of my life, and my mom's credit card.
 - Claude Opus 5.5 (High), for its reasonable price and coding that keeps getting better, alongside Jensen Huang's great GPUs and the electricity company that made this happen.
-- Everyone who pushed back on Google's Web Environment Integrity, so the web still lets unsigned browsers in. For now.
+- Everyone who pushed back on Google's Web Environment Integrity, so the web still lets unsigned browsers in, for the past 10 years and the next 0 to 12 months at best.
