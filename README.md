@@ -30,9 +30,9 @@
 
 <div align="center">
 
-<a href="#introduction">Introduction</a> &nbsp;·&nbsp; <a href="#major-changes">Major changes</a> &nbsp;·&nbsp; <a href="#how-to-use">How to use</a> &nbsp;·&nbsp; <a href="#tests">Tests</a> &nbsp;·&nbsp; <a href="#license">License</a>
+<a href="#introduction">Introduction</a> &nbsp;·&nbsp; <a href="#major-changes">Major changes</a> &nbsp;·&nbsp; <a href="#how-to-use">How to use</a> &nbsp;·&nbsp; <a href="#license">License</a>
 
-<sub><a href="#design-goals">Design goals</a> &nbsp;·&nbsp; <a href="#how-it-works">How it works</a> &nbsp;·&nbsp; <a href="#test-results">Test results</a> &nbsp;·&nbsp; <a href="#download">Download</a> &nbsp;·&nbsp; <a href="#your-first-script">First script</a> &nbsp;·&nbsp; <a href="#common-calls">Common calls</a> &nbsp;·&nbsp; <a href="#build-it-yourself">Build it yourself</a></sub>
+<sub><a href="#design-goals">Design goals</a> &nbsp;·&nbsp; <a href="#test-results">Test results</a> &nbsp;·&nbsp; <a href="#download">Download</a> &nbsp;·&nbsp; <a href="#your-first-script">First script</a> &nbsp;·&nbsp; <a href="#common-calls">Common calls</a> &nbsp;·&nbsp; <a href="#build-it-yourself">Build it yourself</a></sub>
 
 </div>
 
@@ -52,61 +52,29 @@ Each profile keeps its own settings, cookies, logins and internet connection, an
 | Identity secured | Proxy, TLS handshake, graphics card and device values all describe the same person; TLS is Firefox 160's own, so it matches |
 | Profile-based identities | Each new profile gets a random real device, then keeps it; the built-in default profile is new every run |
 
-### How it works
-
-- **A private channel replaces the automation port.** Python and the browser talk over a Windows named pipe with a new random name each launch. It accepts one local connection, refuses remote ones, and opens no network port; the test checks that the usual automation port, 2828, stays closed.
-- **The control code is built into the browser.** The part that carries out your commands is compiled into the browser and runs with browser privileges, outside the page. No extension is installed and nothing is injected into pages.
-- **Your scripts run in a sandbox.** JavaScript you run with `tab.js()` sees the page, but the page can't see it.
-- **Input takes the real path.** Clicks and key presses enter through the browser window like input from the operating system, so pages receive trusted events. Mouse paths and typing are timed like a person's.
-- **Fingerprint values live in the engine.** Patched browser code reads each value from the profile's settings, which pages can't read, and returns it everywhere the value is asked for, workers included. There are no JavaScript overrides to find.
-- **The proxy is the only way out.** The proxy login travels over the private channel and is never written into browser settings. DNS goes through the proxy, WebRTC is limited to the proxy, and there is no fallback to your own connection.
-- **The clock follows the exit.** At start, the browser asks through the proxy where its traffic leaves, without opening a page, and sets the time zone and languages to match.
-
 ### Test results
 
-Public bot and fingerprint checkers, run on 21 November 2026 with the built-in default profile through a US residential proxy:
+Public bot and fingerprint checkers, run on 21 November 2026 with the built-in default profile through a US residential proxy.
 
-| Checker | What it looks for | Result |
-|---|---|---|
-| [CreepJS](https://abrahamjuliot.github.io/creepjs/) | Headless and stealth signs, faked values | 0% headless, 0% stealth, no faked values found |
-| [BotD](https://fingerprintjs.github.io/BotD/main/) by Fingerprint | 18 bot detectors | "You are not a bot", 18 of 18 clear |
-| [Device and Browser Info](https://deviceandbrowserinfo.com/are_you_a_bot) | 22 automation signals | "You are human", 0 of 22 found |
-| [BrowserScan](https://www.browserscan.net/bot-detection) | 17 bot and automation checks | All 17 "Normal" |
-| [Pixelscan](https://pixelscan.net/fingerprint-check) | Fingerprint consistency, proxy use | "Fingerprint is consistent", "No proxy detected" |
-| [Sannysoft](https://bot.sannysoft.com/) | 24 scored bot checks | 23 of 24 pass; the one miss is a Chrome-only check every Firefox fails |
-| WebRTC leak test, in this repo | Your real IP through WebRTC | 6 of 6 pass, no address shown |
-| Real proxy test, in this repo | Exit IP, WebRTC, DNS, login | 10 of 11 pass; DNS servers show Singapore next to a US exit, caused by the proxy provider's entry server |
+| Checker | What it checks | Passed | |
+|---|---|:---:|:---:|
+| [BotD](https://fingerprintjs.github.io/BotD/main/) by Fingerprint | Bot detectors | 18/18 | ✅ |
+| [Device and Browser Info](https://deviceandbrowserinfo.com/are_you_a_bot) | Automation signals | 22/22 | ✅ |
+| [BrowserScan](https://www.browserscan.net/bot-detection) | Bot and automation checks | 17/17 | ✅ |
+| [Sannysoft](https://bot.sannysoft.com/) | Classic bot checks | 23/24 ¹ | ✅ |
+| [CreepJS](https://abrahamjuliot.github.io/creepjs/) | Headless and stealth score | 0% / 0% | ✅ |
+| [Pixelscan](https://pixelscan.net/fingerprint-check) | Fingerprint consistency, proxy | Consistent, no proxy seen | ✅ |
+| WebRTC leak test, in this repo | Real IP through WebRTC | 6/6 | ✅ |
+| Real proxy test, in this repo | Exit IP, WebRTC, DNS, login | 10/11 ² | ⚠️ |
+
+<sub>¹ The one miss is "Chrome object", a Chrome-only check that every Firefox fails.<br>
+² DNS servers show Singapore next to a US exit; the proxy provider's entry server does the lookups.</sub>
 
 <br>
 
 # Major changes
 
-These are the main changes; the full list is in [docs/build-list.md](https://github.com/Galaxy-GunPowder/innocent-fox/blob/main/docs/build-list.md).
-
-| Category | What we did |
-|---|---|
-| Scripting | Python controls the browser through a private channel, not an automation port |
-| Scripting | Mouse and keyboard use the normal input path, with human mouse paths and typing rhythm |
-| Scripting | Selectors reach into frames, including other sites' payment frames, and shadow DOM |
-| Bot detection | `navigator.webdriver` is always false, in pages and workers |
-| Bot detection | Your scripts run in a sandbox the page can't see |
-| Bot detection | Driven windows act as the front window, so pages never switch to hidden |
-| Proxy | HTTPS, HTTP and SOCKS5 proxies with login, pasted in any of 5 common formats |
-| Proxy | Time zone and languages follow the proxy's country |
-| Proxy | WebRTC goes through the proxy only; sites see 0 addresses |
-| Proxy | DNS lookups go through the proxy |
-| Proxy | Kill switch: if the proxy drops, pages stop loading instead of using your connection |
-| Proxy | HTTP proxy login is sent without a prompt |
-| Fingerprint | 15 device values set inside the engine, such as screen, display scale, CPU cores and touch |
-| Fingerprint | Graphics card name, WebGL limits and extensions match the claimed card |
-| Fingerprint | Canvas noise key kept per profile, so a profile looks the same after restarts |
-| Fingerprint | Windows "Text size" no longer changes the display scale pages see |
-| Profiles | Saved profiles keep the same device, cookies and logins every run |
-| Profiles | Built-in default profile: a new random device every run, nothing kept |
-| Profiles | `print(p)` shows every setting plus session history: proxies, countries, websites |
-| Profiles | Wiping history keeps every setting |
-| Background | Idle background connections cut from 33 addresses to 8 |
-| Install | The browser downloads itself on first use and closes when your script ends |
+See the [major changes summary](docs/major-changes.md) and the [full list of changes](docs/build-list.md).
 
 <br>
 
@@ -166,20 +134,6 @@ python scripts/patchtool.py apply       # patches/*.patch, in order
 python scripts/build.py                 # build the browser
 python scripts/build.py package         # make the release zip
 ```
-
-<br>
-
-# Tests
-
-Run these from the repo folder. The public checkers above are listed under [Test results](#test-results).
-
-| Test | Command | Result |
-|---|---|---|
-| Smoke | `python tests/smoke/run_smoke.py` | 20 of 20 |
-| Control pipe | `python tests/pipe/run_pipe.py` | 21 of 21 |
-| WebRTC leak, local test proxy | `python tests/webrtc/run_webrtc.py` | 6 of 6 |
-| CreepJS | `python tests/creep/run_creep.py` | 0% headless, 0% stealth |
-| Real proxy (needs `IFOX_PROXY_FILE`) | `python tests/real/run_decodo.py` | 10 of 11, DNS server country fails |
 
 <br>
 
