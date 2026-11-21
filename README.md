@@ -133,5 +133,5 @@ MPL 2.0 &nbsp;·&nbsp; Not made or endorsed by Mozilla &nbsp;·&nbsp; <a href="N
 
 # Special thanks
 
-- My $50 and 10 hours of my life.
+- My $50 and 10 hours of my life, and my mom's credit card.
 - Claude Opus 5.5 (High), for its reasonable price and coding that keeps getting better, alongside Jensen Huang's great GPUs and the electricity company that made this happen.
