@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/license-MPL_2.0-1d4e74" alt="MPL 2.0 license">
 </p>
 
-<p><a href="#introduction">Introduction</a> &nbsp;·&nbsp; <a href="#major-changes">Major changes</a> &nbsp;·&nbsp; <a href="#how-to-use">How to use</a> &nbsp;·&nbsp; <a href="#license">License</a></p>
+<p><a href="#introduction">Introduction</a> &nbsp;·&nbsp; <a href="#major-changes">Major changes</a> &nbsp;·&nbsp; <a href="#how-to-use">How to use</a> &nbsp;·&nbsp; <a href="#license">License</a> &nbsp;·&nbsp; <a href="#special-thanks">Special thanks</a></p>
 
 </div>
 
