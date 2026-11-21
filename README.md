@@ -26,10 +26,33 @@
 
 <br>
 
+# Contents
+
+<div align="center">
+
+<a href="#introduction">Introduction</a> &nbsp;·&nbsp; <a href="#major-changes">Major changes</a> &nbsp;·&nbsp; <a href="#how-to-use">How to use</a> &nbsp;·&nbsp; <a href="#tests">Tests</a> &nbsp;·&nbsp; <a href="#license">License</a>
+
+<sub><a href="#design-goals">Design goals</a> &nbsp;·&nbsp; <a href="#test-results">Test results</a> &nbsp;·&nbsp; <a href="#download">Download</a> &nbsp;·&nbsp; <a href="#your-first-script">First script</a> &nbsp;·&nbsp; <a href="#common-calls">Common calls</a> &nbsp;·&nbsp; <a href="#build-it-yourself">Build it yourself</a></sub>
+
+</div>
+
+<br>
+
 # Introduction
 
 Innocent Fox is a version of Firefox 160 for running many separate online identities from Python.
 Each profile keeps its own settings, cookies, logins and internet connection, and to a website it looks like an ordinary person on an ordinary computer.
+
+### Design goals
+
+| Goal | What it means |
+|---|---|
+| Fully scriptable | Python controls every page, frame, click and keystroke |
+| Bot detection countered | Pages find no automation traces: no webdriver flag, no control port, no injected code |
+| Identity secured | Proxy, TLS handshake, graphics card and device values all describe the same person; TLS is Firefox 160's own, so it matches |
+| Profile-based identities | Each new profile gets a random real device, then keeps it; the built-in default profile is new every run |
+
+### Proxy
 
 Most of the work went into proxies. Every profile connects through its own proxy, with login, pasted in any of 5 common formats.
 The time zone and languages follow the proxy's country, so a Brazil proxy gives Portuguese and the São Paulo clock.
@@ -52,67 +75,34 @@ Public bot and fingerprint checkers, run on 21 November 2026 with the built-in d
 
 <br>
 
-# Contents
-
-<div align="center">
-
-<a href="#major-changes">Major changes</a> &nbsp;·&nbsp; <a href="#how-to-use">How to use</a> &nbsp;·&nbsp; <a href="#tests">Tests</a> &nbsp;·&nbsp; <a href="#license">License</a>
-
-<sub><a href="#test-results">Test results</a> &nbsp;·&nbsp; <a href="#proxy">Proxy</a> &nbsp;·&nbsp; <a href="#fingerprint">Fingerprint</a> &nbsp;·&nbsp; <a href="#scripting">Scripting</a> &nbsp;·&nbsp; <a href="#profiles">Profiles</a> &nbsp;·&nbsp; <a href="#download">Download</a> &nbsp;·&nbsp; <a href="#your-first-script">First script</a> &nbsp;·&nbsp; <a href="#common-calls">Common calls</a> &nbsp;·&nbsp; <a href="#build-it-yourself">Build it yourself</a></sub>
-
-</div>
-
-<br>
-
 # Major changes
 
 These are the main changes; the full list is in [docs/build-list.md](https://github.com/Galaxy-GunPowder/innocent-fox/blob/main/docs/build-list.md).
 
-### Proxy
-
-Each profile has its own proxy, and the browser makes sure nothing slips past it.
-
-| Change | What you get |
+| Category | What we did |
 |---|---|
-| HTTPS, HTTP and SOCKS5 proxies, with login | Paste a proxy in any of 5 common formats |
-| Time zone and languages follow the proxy | A Brazil proxy gave Portuguese (pt-BR) and the São Paulo clock |
-| WebRTC goes through the proxy only | Sites see 0 local addresses and never your real IP |
-| DNS lookups go through the proxy | Only the proxy's own address is looked up on your computer |
-| Kill switch | If the proxy drops, pages stop loading instead of using your real connection |
-
-### Fingerprint
-
-Websites read many small details to recognise a computer. Each profile gives them a consistent set.
-
-| Change | What you get |
-|---|---|
-| Device values set per profile, inside the engine | 15 values, such as screen, display scale, CPU cores, graphics card and touch |
-| Devices copied from real computers | 4 real machine types, each with its own matching screen, cores and graphics card |
-| Canvas noise kept per profile | A saved profile looks the same every time you open it |
-
-### Scripting
-
-You drive the browser from Python, and websites can't tell it's being scripted.
-
-| Change | What you get |
-|---|---|
-| A private channel instead of an automation port | The CreepJS test scores 0% headless and 0% stealth |
-| Mouse and keyboard work like a real person's | Natural mouse paths and typing rhythm, reported as real input |
-| Works inside frames and shadow DOM | Payment frames from other sites included |
-
-### Profiles
-
-Profiles are folders you manage from Python, and each one shows a full report of itself.
-
-| Change | What you get |
-|---|---|
-| Saved profiles | The same device, cookies and logins every time |
-| A built-in default profile | A new random device every run, with nothing kept afterwards |
-| Session history | `print(p)` lists the proxies, countries and websites each profile has used |
-
-### Fewer background connections
-
-Firefox normally contacts many services on its own. Most are turned off: an idle tab now reaches 8 addresses instead of 33.
+| Scripting | Python controls the browser through a private channel, not an automation port |
+| Scripting | Mouse and keyboard use the normal input path, with human mouse paths and typing rhythm |
+| Scripting | Selectors reach into frames, including other sites' payment frames, and shadow DOM |
+| Bot detection | `navigator.webdriver` is always false, in pages and workers |
+| Bot detection | Your scripts run in a sandbox the page can't see |
+| Bot detection | Driven windows act as the front window, so pages never switch to hidden |
+| Proxy | HTTPS, HTTP and SOCKS5 proxies with login, pasted in any of 5 common formats |
+| Proxy | Time zone and languages follow the proxy's country |
+| Proxy | WebRTC goes through the proxy only; sites see 0 addresses |
+| Proxy | DNS lookups go through the proxy |
+| Proxy | Kill switch: if the proxy drops, pages stop loading instead of using your connection |
+| Proxy | HTTP proxy login is sent without a prompt |
+| Fingerprint | 15 device values set inside the engine, such as screen, display scale, CPU cores and touch |
+| Fingerprint | Graphics card name, WebGL limits and extensions match the claimed card |
+| Fingerprint | Canvas noise key kept per profile, so a profile looks the same after restarts |
+| Fingerprint | Windows "Text size" no longer changes the display scale pages see |
+| Profiles | Saved profiles keep the same device, cookies and logins every run |
+| Profiles | Built-in default profile: a new random device every run, nothing kept |
+| Profiles | `print(p)` shows every setting plus session history: proxies, countries, websites |
+| Profiles | Wiping history keeps every setting |
+| Background | Idle background connections cut from 33 addresses to 8 |
+| Install | The browser downloads itself on first use and closes when your script ends |
 
 <br>
 
