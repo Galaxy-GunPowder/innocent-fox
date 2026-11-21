@@ -29,45 +29,26 @@
 # Introduction
 
 Innocent Fox is a version of Firefox 160 for running many separate online identities from Python.
-Each identity, called a profile, keeps its own settings, cookies, logins and internet connection.
-To a website, every profile looks like an ordinary person on an ordinary computer.
+Each profile keeps its own settings, cookies, logins and internet connection, and to a website it looks like an ordinary person on an ordinary computer.
 
-<table>
-<tr>
-<td width="50%" valign="top">
+Most of the work went into proxies. Every profile connects through its own proxy, with login, pasted in any of 5 common formats.
+The time zone and languages follow the proxy's country, so a Brazil proxy gives Portuguese and the São Paulo clock.
+Nothing goes around the proxy: WebRTC shows no address, DNS is looked up through the proxy, and if the proxy drops, pages stop loading instead of using your real connection.
 
-**Its own proxy for each profile**
+### Test results
 
-Every profile connects through its own proxy, and the time zone and languages follow the proxy's country. The browser never falls back to your real connection; WebRTC and DNS go through the proxy too.
+Public bot and fingerprint checkers, run on 21 November 2026 with the built-in default profile through a US residential proxy:
 
-</td>
-<td width="50%" valign="top">
-
-**Its own device for each profile**
-
-Screen size, display scale, CPU cores, graphics card, touch support and canvas noise are set per profile, inside the browser engine. Every page, frame and worker sees the same values.
-
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
-
-**Scripting that websites can't see**
-
-Python controls the browser through a private channel instead of the usual automation port. Mouse movement and typing follow human timing, with no webdriver flag or injected code.
-
-</td>
-<td width="50%" valign="top">
-
-**Simple profile management**
-
-Create, load, update, wipe or delete profiles from Python. For quick jobs, the built-in default profile gives you a new random device every time and keeps nothing.
-
-</td>
-</tr>
-</table>
-
-<p align="center">Install it with one <code>pip</code> command. The browser downloads itself the first time you use it.</p>
+| Checker | What it looks for | Result |
+|---|---|---|
+| [CreepJS](https://abrahamjuliot.github.io/creepjs/) | Headless and stealth signs, faked values | 0% headless, 0% stealth, no faked values found |
+| [BotD](https://fingerprintjs.github.io/BotD/main/) by Fingerprint | 18 bot detectors | "You are not a bot", 18 of 18 clear |
+| [Device and Browser Info](https://deviceandbrowserinfo.com/are_you_a_bot) | 22 automation signals | "You are human", 0 of 22 found |
+| [BrowserScan](https://www.browserscan.net/bot-detection) | 17 bot and automation checks | All 17 "Normal" |
+| [Pixelscan](https://pixelscan.net/fingerprint-check) | Fingerprint consistency, proxy use | "Fingerprint is consistent", "No proxy detected" |
+| [Sannysoft](https://bot.sannysoft.com/) | 24 scored bot checks | 23 of 24 pass; the one miss is a Chrome-only check every Firefox fails |
+| WebRTC leak test, in this repo | Your real IP through WebRTC | 6 of 6 pass, no address shown |
+| Real proxy test, in this repo | Exit IP, WebRTC, DNS, login | 10 of 11 pass; DNS servers show Singapore next to a US exit, caused by the proxy provider's entry server |
 
 <br>
 
@@ -77,7 +58,7 @@ Create, load, update, wipe or delete profiles from Python. For quick jobs, the b
 
 <a href="#major-changes">Major changes</a> &nbsp;·&nbsp; <a href="#how-to-use">How to use</a> &nbsp;·&nbsp; <a href="#tests">Tests</a> &nbsp;·&nbsp; <a href="#license">License</a>
 
-<sub><a href="#proxy">Proxy</a> &nbsp;·&nbsp; <a href="#fingerprint">Fingerprint</a> &nbsp;·&nbsp; <a href="#scripting">Scripting</a> &nbsp;·&nbsp; <a href="#profiles">Profiles</a> &nbsp;·&nbsp; <a href="#download">Download</a> &nbsp;·&nbsp; <a href="#your-first-script">First script</a> &nbsp;·&nbsp; <a href="#common-calls">Common calls</a> &nbsp;·&nbsp; <a href="#build-it-yourself">Build it yourself</a></sub>
+<sub><a href="#test-results">Test results</a> &nbsp;·&nbsp; <a href="#proxy">Proxy</a> &nbsp;·&nbsp; <a href="#fingerprint">Fingerprint</a> &nbsp;·&nbsp; <a href="#scripting">Scripting</a> &nbsp;·&nbsp; <a href="#profiles">Profiles</a> &nbsp;·&nbsp; <a href="#download">Download</a> &nbsp;·&nbsp; <a href="#your-first-script">First script</a> &nbsp;·&nbsp; <a href="#common-calls">Common calls</a> &nbsp;·&nbsp; <a href="#build-it-yourself">Build it yourself</a></sub>
 
 </div>
 
@@ -196,13 +177,15 @@ python scripts/build.py package         # make the release zip
 
 # Tests
 
-| Test | Result |
-|---|---|
-| Smoke | 20/20: `python tests/smoke/run_smoke.py` |
-| Pipe | 21/21: `python tests/pipe/run_pipe.py` |
-| WebRTC leak | 6/6, WebRTC only, local test proxy |
-| CreepJS | 0% headless, 0% stealth, no lies |
-| Real proxy (Decodo) | FAIL, 10/11: DNS servers show Singapore next to a US exit (the provider's entry server looks names up) |
+Run these from the repo folder. The public checkers above are listed under [Test results](#test-results).
+
+| Test | Command | Result |
+|---|---|---|
+| Smoke | `python tests/smoke/run_smoke.py` | 20 of 20 |
+| Control pipe | `python tests/pipe/run_pipe.py` | 21 of 21 |
+| WebRTC leak, local test proxy | `python tests/webrtc/run_webrtc.py` | 6 of 6 |
+| CreepJS | `python tests/creep/run_creep.py` | 0% headless, 0% stealth |
+| Real proxy (needs `IFOX_PROXY_FILE`) | `python tests/real/run_decodo.py` | 10 of 11, DNS server country fails |
 
 <br>
 
