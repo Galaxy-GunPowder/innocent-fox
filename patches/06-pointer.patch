@@ -1,0 +1,22 @@
+diff --git a/layout/style/nsMediaFeatures.cpp b/layout/style/nsMediaFeatures.cpp
+--- a/layout/style/nsMediaFeatures.cpp
++++ b/layout/style/nsMediaFeatures.cpp
+@@ -457,6 +457,18 @@
+     return kDefaultCapabilities;
+   }
+ 
++  // Innocent Fox: pointer queries follow the profile's touch points, so
++  // (any-pointer: coarse) never reveals a host touchscreen the profile lacks.
++  // The primary pointer of a Windows laptop or desktop is always the mouse.
++  int32_t ifoxTouch = StaticPrefs::ifox_maxTouchPoints();
++  if (ifoxTouch >= 0 && !aDocument->NodePrincipal()->IsSystemPrincipal()) {
++    if (aID == LookAndFeel::IntID::AllPointerCapabilities && ifoxTouch > 0) {
++      return PointerCapabilities::Fine | PointerCapabilities::Hover |
++             PointerCapabilities::Coarse;
++    }
++    return PointerCapabilities::Fine | PointerCapabilities::Hover;
++  }
++
+   int32_t intValue;
+   nsresult rv = LookAndFeel::GetInt(aID, &intValue);
+   if (NS_FAILED(rv)) {

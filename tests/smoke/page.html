@@ -1,0 +1,61 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>ifox smoke</title>
+<canvas id="c" width="240" height="60"></canvas>
+<script>
+// Reads every value our patches change, in the page and in a worker, and posts it back.
+async function sha256(text) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 16);
+}
+
+function workerCores() {
+  const src = "postMessage({cores: navigator.hardwareConcurrency, " +
+    "tz: Intl.DateTimeFormat().resolvedOptions().timeZone, offset: new Date(2026, 0, 15).getTimezoneOffset()})";
+  const w = new Worker(URL.createObjectURL(new Blob([src], {type: "text/javascript"})));
+  return new Promise(resolve => { w.onmessage = e => resolve(e.data); });
+}
+
+function webgl(hidden) {
+  const gl = document.createElement("canvas").getContext("webgl");
+  if (!gl) return {error: "no webgl"};
+  const exts = gl.getSupportedExtensions();
+  return {
+    maxTextureSize: gl.getParameter(gl.MAX_TEXTURE_SIZE),
+    maxViewportDims: Array.from(gl.getParameter(gl.MAX_VIEWPORT_DIMS)),
+    extensionCount: exts.length,
+    hiddenListed: exts.includes(hidden),
+    hiddenGettable: gl.getExtension(hidden) !== null,
+  };
+}
+
+async function canvasHash() {
+  const ctx = document.getElementById("c").getContext("2d");
+  ctx.fillStyle = "#f60"; ctx.fillRect(10, 10, 100, 30);
+  ctx.fillStyle = "#069"; ctx.font = "16px Arial"; ctx.fillText("Innocent Fox 1.0", 20, 30);
+  return sha256(document.getElementById("c").toDataURL());
+}
+
+(async () => {
+  const hidden = new URLSearchParams(location.search).get("hidden") || "";
+  const r = {
+    cores: navigator.hardwareConcurrency,
+    ...(await workerCores().then(d => ({workerCores: d.cores, workerTz: d.tz, workerOffset: d.offset}))),
+    tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    // January, so no daylight saving: New York is 300 minutes behind UTC.
+    offset: new Date(2026, 0, 15).getTimezoneOffset(),
+    maxTouchPoints: navigator.maxTouchPoints,
+    webdriver: navigator.webdriver,
+    screen: [screen.width, screen.height],
+    avail: [screen.availWidth, screen.availHeight, screen.availTop],
+    dpr: devicePixelRatio,
+    // device-width can be fractional, so ask for a 1px window around screen.width.
+    cssDeviceWidthNear: matchMedia(`(min-device-width: ${screen.width - 1}px) and (max-device-width: ${screen.width + 1}px)`).matches,
+    cssDeviceHeightNear: matchMedia(`(min-device-height: ${screen.height - 1}px) and (max-device-height: ${screen.height + 1}px)`).matches,
+    webgl: webgl(hidden),
+    canvas: await canvasHash(),
+  };
+  await fetch("/result", {method: "POST", body: JSON.stringify(r)});
+  document.title = "done";
+})();
+</script>

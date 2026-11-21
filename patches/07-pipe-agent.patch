@@ -1,0 +1,1043 @@
+diff --git a/toolkit/components/ifox/IfoxAgent.sys.mjs b/toolkit/components/ifox/IfoxAgent.sys.mjs
+new file mode 100644
+--- /dev/null
++++ b/toolkit/components/ifox/IfoxAgent.sys.mjs
+@@ -0,0 +1,586 @@
++/* Innocent Fox agent, parent process.
++ *
++ * Runs only when Firefox starts with -ifox-pipe <name>. Reads one JSON
++ * command per line from the launcher and answers on the same pipe:
++ *   -> {"id": 1, "do": "goto", "args": {"tab": 7, "url": "https://..."}}
++ *   <- {"id": 1, "ok": true, "value": ...}   or   {"id": 1, "ok": false, "error": "..."}
++ * No port, no page script, no prefs changed. Mouse and keys enter through
++ * the top-level window like OS input, not flagged as test events.
++ * x/y are CSS pixels of the browser window unless a command says otherwise.
++ */
++
++import { clearTimeout, setTimeout } from "resource://gre/modules/Timer.sys.mjs";
++
++const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
++const system = () => Services.scriptSecurityManager.getSystemPrincipal();
++const splitSel = sel => sel.split(/\s+>>\s+/);
++
++const WPL = Ci.nsIWebProgressListener;
++const MOUSE = { move: "mousemove", down: "mousedown", up: "mouseup" };
++const SIDE_CODES = {
++  Shift: "ShiftLeft",
++  Control: "ControlLeft",
++  Alt: "AltLeft",
++  Meta: "MetaLeft",
++};
++
++class Agent {
++  QueryInterface = ChromeUtils.generateQI(["nsIObserver"]);
++  pipe = null;
++  tips = new WeakMap();
++
++  observe(subject, topic) {
++    if (topic === "profile-after-change") {
++      Services.obs.addObserver(this, "command-line-startup");
++    } else if (topic === "command-line-startup") {
++      Services.obs.removeObserver(this, topic);
++      const cmdLine = subject.QueryInterface(Ci.nsICommandLine);
++      const name = cmdLine.handleFlagWithParam("ifox-pipe", false);
++      if (name) {
++        this.start(name);
++      }
++    }
++  }
++
++  start(name) {
++    ChromeUtils.registerWindowActor("Ifox", {
++      parent: { esModuleURI: "resource://gre/modules/IfoxParent.sys.mjs" },
++      child: { esModuleURI: "resource://gre/modules/IfoxChild.sys.mjs" },
++      allFrames: true,
++      // Web pages run in "untrusted" content processes; the actor must reach them.
++      safeForUntrustedWebProcess: true,
++    });
++    this.pipe = Cc["@mozilla.org/ifox/pipe;1"].createInstance(Ci.nsIIfoxPipe);
++    this.pipe.open(name, {
++      QueryInterface: ChromeUtils.generateQI(["nsIIfoxPipeListener"]),
++      onLine: line => this.onLine(line),
++      // The launcher is gone: nobody can drive or close this browser any more.
++      onClose: () => Services.startup.quit(Ci.nsIAppStartup.eForceQuit),
++    });
++  }
++
++  send(obj) {
++    this.pipe.send(JSON.stringify(obj));
++  }
++
++  async onLine(line) {
++    let msg;
++    try {
++      msg = JSON.parse(line);
++    } catch (e) {
++      return;
++    }
++    try {
++      const value = await this.run(msg.do, msg.args ?? {});
++      this.send({ id: msg.id, ok: true, value: value ?? null });
++    } catch (e) {
++      this.send({ id: msg.id, ok: false, error: String(e?.message ?? e) });
++    }
++  }
++
++  run(verb, args) {
++    switch (verb) {
++      case "hello":
++        return this.hello();
++      case "tabs":
++        return this.tabs();
++      case "open":
++        return this.open(args);
++      case "goto":
++        return this.goto(args);
++      case "back":
++        return this.navigate(args, b => b.goBack());
++      case "reload":
++        return this.navigate(args, b => b.reload());
++      case "select":
++        return this.select(args);
++      case "close":
++        return this.close(args);
++      case "find":
++        return this.find(args);
++      case "mouse":
++        return this.mouse(args);
++      case "wheel":
++        return this.wheel(args);
++      case "key":
++        return this.key(args);
++      case "js":
++        return this.js(args);
++      case "shot":
++        return this.shot(args);
++      case "prefs":
++        return this.prefs(args);
++      case "chrome":
++        return this.chrome(args);
++      case "proxy":
++        return this.proxy(args);
++      case "exitinfo":
++        return this.exitinfo(args);
++      case "quit":
++        setTimeout(() => Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit), 0);
++        return null;
++    }
++    throw new Error(`unknown command ${verb}`);
++  }
++
++  // Windows and tabs
++
++  async window() {
++    for (let i = 0; i < 600; i++) {
++      const win = Services.wm.getMostRecentWindow("navigator:browser");
++      if (win?.gBrowserInit?.delayedStartupFinished) {
++        return win;
++      }
++      await sleep(100);
++    }
++    throw new Error("no browser window");
++  }
++
++  *allBrowsers() {
++    for (const win of Services.wm.getEnumerator("navigator:browser")) {
++      if (win.gBrowser) {
++        yield* win.gBrowser.browsers;
++      }
++    }
++  }
++
++  // The window holding a browser element, even for a tab that is not loaded yet.
++  winOf(b) {
++    if (b.ownerDocument?.defaultView) {
++      return b.ownerDocument.defaultView;
++    }
++    for (const win of Services.wm.getEnumerator("navigator:browser")) {
++      if (win.gBrowser?.browsers.includes(b)) {
++        return win;
++      }
++    }
++    throw new Error("tab has no window");
++  }
++
++  browser(tab) {
++    if (tab == null) {
++      const win = Services.wm.getMostRecentWindow("navigator:browser");
++      if (win?.gBrowser) {
++        return win.gBrowser.selectedBrowser;
++      }
++    }
++    for (const b of this.allBrowsers()) {
++      if (b.browserId === tab) {
++        return b;
++      }
++    }
++    throw new Error(`no tab ${tab}`);
++  }
++
++  async hello() {
++    const win = await this.window();
++    return {
++      version: Services.appinfo.version,
++      tab: win.gBrowser.selectedBrowser.browserId,
++    };
++  }
++
++  tabs() {
++    return Array.from(this.allBrowsers(), b => ({
++      tab: b.browserId,
++      url: b.currentURI?.spec ?? "",
++      title: b.contentTitle ?? "",
++      selected: this.winOf(b).gBrowser.selectedBrowser === b,
++    }));
++  }
++
++  // Resolves when the top document of the browser that begin() returns has
++  // finished loading (load event done), or with an error page's status.
++  waitLoad(win, timeout, begin) {
++    return new Promise((resolve, reject) => {
++      let browser = null;
++      let started = false;
++      const listener = {
++        onStateChange(b, webProgress, request, flags, status) {
++          if (
++            b !== browser ||
++            !webProgress.isTopLevel ||
++            !(flags & WPL.STATE_IS_WINDOW)
++          ) {
++            return;
++          }
++          if (flags & WPL.STATE_START) {
++            started = true;
++          } else if (flags & WPL.STATE_STOP && started) {
++            done();
++            resolve({ tab: b.browserId, status });
++          }
++        },
++      };
++      const timer = setTimeout(() => {
++        done();
++        reject(new Error(`page load timed out after ${timeout} ms`));
++      }, timeout);
++      const done = () => {
++        clearTimeout(timer);
++        win.gBrowser.removeTabsProgressListener(listener);
++      };
++      win.gBrowser.addTabsProgressListener(listener);
++      try {
++        browser = begin();
++      } catch (e) {
++        done();
++        reject(e);
++      }
++    });
++  }
++
++  async open({ url = "about:blank", timeout = 30000, background = false }) {
++    const win = await this.window();
++    const add = () => {
++      const tab = win.gBrowser.addTrustedTab(url);
++      if (!background) {
++        win.gBrowser.selectedTab = tab;
++      }
++      return tab.linkedBrowser;
++    };
++    if (url === "about:blank") {
++      return { tab: add().browserId, status: 0 };
++    }
++    return this.waitLoad(win, timeout, add);
++  }
++
++  goto({ tab, url, timeout = 30000 }) {
++    return this.navigate({ tab, timeout }, b =>
++      b.fixupAndLoadURIString(url, {
++        triggeringPrincipal: system(),
++        hasValidUserGestureActivation: true,
++      })
++    );
++  }
++
++  navigate({ tab, timeout = 30000 }, go) {
++    const b = this.browser(tab);
++    return this.waitLoad(this.winOf(b), timeout, () => {
++      go(b);
++      return b;
++    });
++  }
++
++  select({ tab }) {
++    const b = this.browser(tab);
++    const win = this.winOf(b);
++    win.gBrowser.selectedTab = win.gBrowser.getTabForBrowser(b);
++    win.focus();
++    return null;
++  }
++
++  close({ tab }) {
++    const b = this.browser(tab);
++    const g = this.winOf(b).gBrowser;
++    g.removeTab(g.getTabForBrowser(b));
++    return null;
++  }
++
++  // Elements
++
++  // Follows the selector through frames; offsets add up in device pixels.
++  async resolve(browser, sel, enter = false) {
++    let parts = splitSel(sel);
++    let bc = browser.browsingContext;
++    let ox = 0;
++    let oy = 0;
++    for (let depth = 0; depth < 32; depth++) {
++      const actor = bc?.currentWindowGlobal?.getActor("Ifox");
++      if (!actor) {
++        throw new Error("page not ready");
++      }
++      const r = await actor.sendQuery("find", { parts, enter });
++      if (r.frame === undefined) {
++        return { r, ox, oy, bc };
++      }
++      ox += r.ox;
++      oy += r.oy;
++      bc = BrowsingContext.get(r.frame);
++      parts = r.rest;
++      if (!parts.length) {
++        return { r: { found: true, frame: true }, ox, oy, bc };
++      }
++    }
++    throw new Error("frames nested too deep");
++  }
++
++  async locate(browser, sel) {
++    const { r, ox, oy } = await this.resolve(browser, sel);
++    if (!r.found) {
++      return { found: false };
++    }
++    const win = this.winOf(browser);
++    const dpr = win.devicePixelRatio;
++    const view = browser.getBoundingClientRect();
++    const x = view.left + (ox + r.x) / dpr;
++    const y = view.top + (oy + r.y) / dpr;
++    const w = r.w / dpr;
++    const h = r.h / dpr;
++    const cx = x + w / 2;
++    const cy = y + h / 2;
++    return {
++      ...r,
++      x,
++      y,
++      w,
++      h,
++      inView:
++        r.inView &&
++        cx >= view.left &&
++        cx < view.right &&
++        cy >= view.top &&
++        cy < view.bottom,
++      view: { x: view.left, y: view.top, w: view.width, h: view.height },
++    };
++  }
++
++  // Waits until the element exists and is visible, unless wait is false.
++  async find({ tab, sel, timeout = 10000, wait = true }) {
++    const browser = this.browser(tab);
++    const deadline = Date.now() + timeout;
++    let last = { found: false };
++    for (;;) {
++      try {
++        last = await this.locate(browser, sel);
++      } catch (e) {
++        if (String(e.message).startsWith("bad selector")) {
++          throw e;
++        }
++        last = { found: false, error: String(e.message) };
++      }
++      if (!wait || (last.found && last.visible)) {
++        return last;
++      }
++      if (Date.now() > deadline) {
++        throw new Error(`not found after ${timeout} ms: ${sel}`);
++      }
++      await sleep(100);
++    }
++  }
++
++  async js({ tab, frame, code, args = [] }) {
++    const browser = this.browser(tab);
++    let bc = browser.browsingContext;
++    if (frame) {
++      const found = await this.resolve(browser, frame, true);
++      if (!found.r.found || !found.r.frame) {
++        throw new Error(`no frame ${frame}`);
++      }
++      bc = found.bc;
++    }
++    const actor = bc.currentWindowGlobal?.getActor("Ifox");
++    if (!actor) {
++      throw new Error("page not ready");
++    }
++    return actor.sendQuery("js", { code, args });
++  }
++
++  // Input
++
++  inputWindow(tab) {
++    return tab == null
++      ? Services.wm.getMostRecentWindow("navigator:browser")
++      : this.winOf(this.browser(tab));
++  }
++
++  mouse({ tab, type = "move", x, y, button = 0, buttons, clicks }) {
++    const win = this.inputWindow(tab);
++    const data = { button, inputSource: 1 /* MOZ_SOURCE_MOUSE */ };
++    if (buttons !== undefined) {
++      data.buttons = buttons;
++    }
++    if (clicks !== undefined) {
++      data.clickCount = clicks;
++    }
++    // A real mouse sits on whole device pixels.
++    const dpr = win.devicePixelRatio;
++    x = Math.round(x * dpr) / dpr;
++    y = Math.round(y * dpr) / dpr;
++    // isAsyncEnabled: through APZ like real input, which also routes the
++    // event into out-of-process iframes.
++    win.synthesizeMouseEvent(MOUSE[type], x, y, data, {
++      isDOMEventSynthesized: false,
++      isAsyncEnabled: true,
++    });
++    return null;
++  }
++
++  // One notch = 3 lines, as a Windows mouse wheel sends.
++  wheel({ tab, x, y, dy = 0, dx = 0 }) {
++    const win = this.inputWindow(tab);
++    win.windowUtils.sendWheelEvent(
++      x,
++      y,
++      dx * 3,
++      dy * 3,
++      0,
++      1 /* DOM_DELTA_LINE */,
++      0,
++      dx * 3,
++      dy * 3,
++      // Through async scrolling (APZ), the path a real wheel takes.
++      Ci.nsIDOMWindowUtils.WHEEL_EVENT_ASYNC_ENABLED
++    );
++    return null;
++  }
++
++  tip(win) {
++    let tip = this.tips.get(win);
++    if (!tip) {
++      tip = Cc["@mozilla.org/text-input-processor;1"].createInstance(
++        Ci.nsITextInputProcessor
++      );
++      this.tips.set(win, tip);
++    }
++    if (!tip.beginInputTransaction(win, () => true)) {
++      throw new Error("keyboard is busy");
++    }
++    return tip;
++  }
++
++  key({ tab, key, type = "press" }) {
++    const win = this.inputWindow(tab);
++    const tip = this.tip(win);
++    const printable = Array.from(key).length === 1;
++    const init = { key };
++    let flags = 0;
++    if (printable) {
++      init.code = tip.guessCodeValueOfPrintableKeyInUSEnglishKeyboardLayout(key);
++      init.keyCode =
++        tip.guessKeyCodeValueOfPrintableKeyInUSEnglishKeyboardLayout(key);
++    } else {
++      init.code = SIDE_CODES[key] ?? key;
++      if (SIDE_CODES[key]) {
++        init.location = 1;
++      }
++      flags = Ci.nsITextInputProcessor.KEY_NON_PRINTABLE_KEY;
++    }
++    const event = new win.KeyboardEvent("", init);
++    if (type === "down" || type === "press") {
++      tip.keydown(event, flags);
++    }
++    if (type === "up" || type === "press") {
++      tip.keyup(event, flags);
++    }
++    return null;
++  }
++
++  // Other
++
++  async shot({ tab }) {
++    const browser = this.browser(tab);
++    const wg = browser.browsingContext.currentWindowGlobal;
++    const bitmap = await wg.drawSnapshot(null, 1, "white");
++    const doc = this.winOf(browser).document;
++    const canvas = doc.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
++    canvas.width = bitmap.width;
++    canvas.height = bitmap.height;
++    canvas.getContext("2d").drawImage(bitmap, 0, 0);
++    bitmap.close();
++    return canvas.toDataURL("image/png");
++  }
++
++  // Debugging: code run in the parent process, with win (browser window) and Services.
++  async chrome({ code, args = [] }) {
++    const sb = Cu.Sandbox(system(), { wantComponents: true });
++    sb.win = Services.wm.getMostRecentWindow("navigator:browser");
++    sb.Services = Services;
++    sb.args = args;
++    const value = await Cu.evalInSandbox(`(async () => {
++${code}
++})()`, sb);
++    return value === undefined ? null : JSON.parse(JSON.stringify(value));
++  }
++
++  // A proxy for every request, set here when prefs can't say it: a SOCKS5
++  // login, or a TLS (https) proxy. The login lives only here, in memory.
++  proxy({ type = "socks", host, port, user = "", pass = "", remoteDns = true }) {
++    const pps = Cc["@mozilla.org/network/protocol-proxy-service;1"].getService(
++      Ci.nsIProtocolProxyService
++    );
++    if (this.proxyFilter) {
++      pps.unregisterChannelFilter(this.proxyFilter);
++    }
++    // remoteDns false: Firefox resolves (DoH through this proxy) and hands
++    // the proxy IP addresses, so the provider's gateway never looks names up.
++    const resolvesHost = remoteDns
++      ? Ci.nsIProxyInfo.TRANSPARENT_PROXY_RESOLVES_HOST
++      : 0;
++    // Basic login as UTF-8 bytes (btoa alone fails on non-Latin-1 text).
++    const basic = user
++      ? "Basic " +
++        btoa(String.fromCharCode(...new TextEncoder().encode(`${user}:${pass}`)))
++      : "";
++    // http and https proxies get the login as a header (patch 09 for http).
++    const info =
++      type === "https" || type === "http"
++        ? pps.newProxyInfo(
++            type,
++            host,
++            port,
++            basic,
++            "",
++            resolvesHost,
++            0xffffffff,
++            null
++          )
++        : pps.newProxyInfoWithAuth(
++            "socks",
++            host,
++            port,
++            user,
++            pass,
++            "",
++            "",
++            resolvesHost,
++            0xffffffff,
++            null
++          );
++    this.proxyFilter = {
++      QueryInterface: ChromeUtils.generateQI(["nsIProtocolProxyChannelFilter"]),
++      applyFilter(channel, defaultProxy, callback) {
++        callback.onProxyFilterResult(info);
++      },
++    };
++    pps.registerChannelFilter(this.proxyFilter, 0);
++    return null;
++  }
++
++  // Where the profile's traffic leaves: asked from inside the browser, so it
++  // goes through the same proxy as pages, with no page opened and no cookies.
++  async exitinfo({ url = "https://ipinfo.io/json" }) {
++    const sb = Cu.Sandbox(system(), { wantGlobalProperties: ["fetch"] });
++    sb.url = url;
++    const text = await Cu.evalInSandbox(
++      `(async () => {
++        const r = await fetch(url, { credentials: "omit", cache: "no-store" });
++        if (!r.ok) throw new Error("exit lookup: HTTP " + r.status);
++        return await r.text();
++      })()`,
++      sb
++    );
++    return JSON.parse(text);
++  }
++
++  // Live pref changes: fingerprint values switch without a restart.
++  prefs({ set = {} }) {
++    for (const [name, value] of Object.entries(set)) {
++      if (typeof value === "boolean") {
++        Services.prefs.setBoolPref(name, value);
++      } else if (Number.isInteger(value)) {
++        Services.prefs.setIntPref(name, value);
++      } else {
++        Services.prefs.setStringPref(name, String(value));
++      }
++    }
++    return null;
++  }
++}
++
++const agent = new Agent();
++
++// XPCOM calls this as a constructor; one agent per process.
++export const IfoxAgentFactory = function () {
++  return agent;
++};
+diff --git a/toolkit/components/ifox/IfoxChild.sys.mjs b/toolkit/components/ifox/IfoxChild.sys.mjs
+new file mode 100644
+--- /dev/null
++++ b/toolkit/components/ifox/IfoxChild.sys.mjs
+@@ -0,0 +1,185 @@
++/* Innocent Fox agent: per-frame half, in the frame's content process.
++ *
++ * Runs in a privileged scope and sees page objects through Xray wrappers, so
++ * page globals, patched prototypes and page listeners never see it.
++ * Positions are device pixels from the top-left of this frame's viewport.
++ */
++
++// Keyed by document: the window object is reused when a tab navigates.
++const sandboxes = new WeakMap();
++
++const SKIP = new Set(["head", "title", "script", "style", "noscript", "template"]);
++
++function norm(s) {
++  return (s ?? "").replace(/\s+/g, " ").trim().toLowerCase();
++}
++
++function visible(el) {
++  const r = el.getBoundingClientRect();
++  return (
++    r.width > 0 &&
++    r.height > 0 &&
++    el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
++  );
++}
++
++// text=Sign up matches the deepest visible element containing that text;
++// text="Sign up" needs the whole text to be equal.
++function byText(root, raw) {
++  let want = raw.trim();
++  const exact = want.length > 1 && want.startsWith('"') && want.endsWith('"');
++  if (exact) {
++    want = want.slice(1, -1);
++  }
++  want = norm(want);
++  const own = el =>
++    el.localName === "input" ? norm(el.value) : norm(el.textContent);
++  const hit = el =>
++    !SKIP.has(el.localName) &&
++    (exact ? own(el) === want : own(el).includes(want));
++  for (const el of root.querySelectorAll("*")) {
++    if (!hit(el)) {
++      continue;
++    }
++    let cur = el;
++    for (;;) {
++      const child = Array.from(cur.children).find(hit);
++      if (!child) {
++        break;
++      }
++      cur = child;
++    }
++    if (visible(cur)) {
++      return cur;
++    }
++  }
++  return null;
++}
++
++function query(root, sel) {
++  if (sel.startsWith("text=")) {
++    return byText(root, sel.slice(5));
++  }
++  try {
++    return root.querySelector(sel);
++  } catch (e) {
++    throw new Error(`bad selector: ${sel}`);
++  }
++}
++
++function describe(el) {
++  const win = el.ownerDocument.defaultView;
++  const dpr = win.devicePixelRatio;
++  const r = el.getBoundingClientRect();
++  const cx = r.left + r.width / 2;
++  const cy = r.top + r.height / 2;
++  const inView =
++    cx >= 0 && cy >= 0 && cx < win.innerWidth && cy < win.innerHeight;
++  let covered = false;
++  if (inView) {
++    const top = el.getRootNode().elementFromPoint(cx, cy);
++    covered = !!top && top !== el && !el.contains(top);
++  }
++  return {
++    found: true,
++    visible: visible(el),
++    inView,
++    covered,
++    x: r.left * dpr,
++    y: r.top * dpr,
++    w: r.width * dpr,
++    h: r.height * dpr,
++    tag: el.localName,
++    text: (el.innerText ?? el.textContent ?? "").trim().slice(0, 300),
++    value: typeof el.value === "string" ? el.value : null,
++  };
++}
++
++function plain(v) {
++  if (v === undefined || v === null) {
++    return null;
++  }
++  try {
++    return JSON.parse(JSON.stringify(v));
++  } catch (e) {
++    return String(v);
++  }
++}
++
++export class IfoxChild extends JSWindowActorChild {
++  async receiveMessage({ name, data }) {
++    switch (name) {
++      case "find":
++        return this.find(data);
++      case "js":
++        return this.js(data);
++    }
++    throw new Error(`unknown message ${name}`);
++  }
++
++  // Walks "a >> b >> c": each step is in this document, a shadow root, or
++  // (returned to the parent) the next frame.
++  find({ parts, enter = false }) {
++    let root = this.document;
++    for (let i = 0; i < parts.length; i++) {
++      const el = query(root, parts[i]);
++      if (!el) {
++        return { found: false };
++      }
++      const last = i === parts.length - 1;
++      const isFrame = el.localName === "iframe" || el.localName === "frame";
++      if (isFrame && (!last || enter)) {
++        const bc = el.browsingContext;
++        if (!bc) {
++          return { found: false };
++        }
++        const win = el.ownerDocument.defaultView;
++        const dpr = win.devicePixelRatio;
++        const r = el.getBoundingClientRect();
++        const cs = win.getComputedStyle(el);
++        return {
++          frame: bc.id,
++          ox: (r.left + el.clientLeft + parseFloat(cs.paddingLeft)) * dpr,
++          oy: (r.top + el.clientTop + parseFloat(cs.paddingTop)) * dpr,
++          rest: parts.slice(i + 1),
++        };
++      }
++      if (last) {
++        return describe(el);
++      }
++      root = el.openOrClosedShadowRoot;
++      if (!root) {
++        throw new Error(`${parts[i]} is neither a frame nor a shadow host`);
++      }
++    }
++    return { found: false };
++  }
++
++  // Runs code as an async function body in a sandbox over the page:
++  // DOM through Xrays, page values through window.wrappedJSObject.
++  async js({ code, args = [] }) {
++    const win = this.contentWindow;
++    let sb = sandboxes.get(this.document);
++    if (!sb) {
++      sb = Cu.Sandbox([this.document.nodePrincipal], {
++        sandboxPrototype: win,
++        wantXrays: true,
++        sameZoneAs: win,
++      });
++      sandboxes.set(this.document, sb);
++    }
++    try {
++      const fn = Cu.evalInSandbox(
++        `(async function () {\n${code}\n})`,
++        sb,
++        null,
++        "",
++        1
++      );
++      const cloned = Cu.cloneInto(args, sb);
++      return plain(await fn(...cloned));
++    } catch (e) {
++      throw new Error(String(e?.message ?? e));
++    }
++  }
++}
+diff --git a/toolkit/components/ifox/IfoxParent.sys.mjs b/toolkit/components/ifox/IfoxParent.sys.mjs
+new file mode 100644
+--- /dev/null
++++ b/toolkit/components/ifox/IfoxParent.sys.mjs
+@@ -0,0 +1,4 @@
++/* Innocent Fox agent: parent half of the per-frame actor. The agent drives
++ * it directly through sendQuery, so it needs no code of its own. */
++
++export class IfoxParent extends JSWindowActorParent {}
+diff --git a/toolkit/components/ifox/IfoxPipe.cpp b/toolkit/components/ifox/IfoxPipe.cpp
+new file mode 100644
+--- /dev/null
++++ b/toolkit/components/ifox/IfoxPipe.cpp
+@@ -0,0 +1,126 @@
++/* Innocent Fox: line-based JSON channel to the launcher over two named pipes.
++ *
++ * The launcher creates both pipes (one instance each, local only) and passes
++ * their shared name with -ifox-pipe. Nothing listens on the network.
++ * Reads block on a detached thread that dies with the process, so a quiet
++ * pipe never holds up shutdown. Writes are synchronous on the main thread.
++ */
++
++#include "IfoxPipe.h"
++
++#include <windows.h>
++
++#include <string>
++
++#include "mozilla/UniquePtr.h"
++#include "nsProxyRelease.h"
++#include "nsString.h"
++#include "nsThreadUtils.h"
++#include "prthread.h"
++
++using namespace mozilla;
++
++NS_IMPL_ISUPPORTS(IfoxPipe, nsIIfoxPipe)
++
++namespace {
++
++struct ReaderArgs {
++  HANDLE mIn;
++  nsMainThreadPtrHandle<nsIIfoxPipeListener> mListener;
++};
++
++HANDLE OpenPipe(const nsAString& aName, const char16_t* aSuffix,
++                DWORD aAccess) {
++  nsAutoString path(u"\\\\.\\pipe\\"_ns);
++  path.Append(aName);
++  path.Append(aSuffix);
++  return ::CreateFileW(static_cast<const wchar_t*>(path.get()), aAccess,
++                       0, nullptr, OPEN_EXISTING, 0, nullptr);
++}
++
++void ReadLoop(void* aArg) {
++  UniquePtr<ReaderArgs> args(static_cast<ReaderArgs*>(aArg));
++  std::string pending;
++  static char buf[65536];
++  for (;;) {
++    DWORD got = 0;
++    if (!::ReadFile(args->mIn, buf, sizeof(buf), &got, nullptr) || got == 0) {
++      break;
++    }
++    pending.append(buf, got);
++    size_t start = 0;
++    size_t nl;
++    while ((nl = pending.find('\n', start)) != std::string::npos) {
++      nsCString line(pending.data() + start, nl - start);
++      start = nl + 1;
++      nsMainThreadPtrHandle<nsIIfoxPipeListener> listener = args->mListener;
++      NS_DispatchToMainThread(NS_NewRunnableFunction(
++          "IfoxPipe::OnLine",
++          [listener, line]() { (void)listener->OnLine(line); }));
++    }
++    pending.erase(0, start);
++  }
++  ::CloseHandle(args->mIn);
++  nsMainThreadPtrHandle<nsIIfoxPipeListener> listener = args->mListener;
++  NS_DispatchToMainThread(NS_NewRunnableFunction(
++      "IfoxPipe::OnClose", [listener]() { (void)listener->OnClose(); }));
++}
++
++}  // namespace
++
++IfoxPipe::~IfoxPipe() {
++  if (mOut) {
++    ::CloseHandle(static_cast<HANDLE>(mOut));
++  }
++}
++
++NS_IMETHODIMP
++IfoxPipe::Open(const nsAString& aName, nsIIfoxPipeListener* aListener) {
++  MOZ_ASSERT(NS_IsMainThread());
++  if (mOut || !aListener || aName.IsEmpty()) {
++    return NS_ERROR_UNEXPECTED;
++  }
++  HANDLE in = OpenPipe(aName, u"-in", GENERIC_READ);
++  if (in == INVALID_HANDLE_VALUE) {
++    return NS_ERROR_FILE_NOT_FOUND;
++  }
++  HANDLE out = OpenPipe(aName, u"-out", GENERIC_WRITE);
++  if (out == INVALID_HANDLE_VALUE) {
++    ::CloseHandle(in);
++    return NS_ERROR_FILE_NOT_FOUND;
++  }
++  mOut = out;
++
++  auto* args = new ReaderArgs{
++      in, nsMainThreadPtrHandle<nsIIfoxPipeListener>(
++              new nsMainThreadPtrHolder<nsIIfoxPipeListener>(
++                  "IfoxPipe::mListener", aListener))};
++  if (!PR_CreateThread(PR_SYSTEM_THREAD, ReadLoop, args, PR_PRIORITY_NORMAL,
++                       PR_GLOBAL_THREAD, PR_UNJOINABLE_THREAD, 0)) {
++    ::CloseHandle(in);
++    delete args;
++    return NS_ERROR_FAILURE;
++  }
++  return NS_OK;
++}
++
++NS_IMETHODIMP
++IfoxPipe::Send(const nsACString& aLine) {
++  MOZ_ASSERT(NS_IsMainThread());
++  if (!mOut) {
++    return NS_ERROR_NOT_INITIALIZED;
++  }
++  nsAutoCString data(aLine);
++  data.Append('\n');
++  const char* p = data.get();
++  DWORD left = data.Length();
++  while (left) {
++    DWORD wrote = 0;
++    if (!::WriteFile(static_cast<HANDLE>(mOut), p, left, &wrote, nullptr)) {
++      return NS_ERROR_FAILURE;
++    }
++    p += wrote;
++    left -= wrote;
++  }
++  return NS_OK;
++}
+diff --git a/toolkit/components/ifox/IfoxPipe.h b/toolkit/components/ifox/IfoxPipe.h
+new file mode 100644
+--- /dev/null
++++ b/toolkit/components/ifox/IfoxPipe.h
+@@ -0,0 +1,22 @@
++/* Innocent Fox: line-based JSON channel to the launcher over two named pipes. */
++
++#ifndef IfoxPipe_h
++#define IfoxPipe_h
++
++#include "nsIIfoxPipe.h"
++
++class IfoxPipe final : public nsIIfoxPipe {
++ public:
++  NS_DECL_THREADSAFE_ISUPPORTS
++  NS_DECL_NSIIFOXPIPE
++
++  IfoxPipe() = default;
++
++ private:
++  ~IfoxPipe();
++
++  // Write end (a Windows HANDLE). The read end belongs to the reader thread.
++  void* mOut = nullptr;
++};
++
++#endif  // IfoxPipe_h
+diff --git a/toolkit/components/ifox/components.conf b/toolkit/components/ifox/components.conf
+new file mode 100644
+--- /dev/null
++++ b/toolkit/components/ifox/components.conf
+@@ -0,0 +1,17 @@
++Classes = [
++    {
++        "cid": "{c3a0f7d2-5e1b-4a9c-8f36-1d2e4b7a9c05}",
++        "contract_ids": ["@mozilla.org/ifox/pipe;1"],
++        "type": "IfoxPipe",
++        "headers": ["IfoxPipe.h"],
++        "processes": ProcessSelector.MAIN_PROCESS_ONLY,
++    },
++    {
++        "cid": "{7d4e2b91-0c3f-4a58-b6e7-9f1a2c3d4e5f}",
++        "contract_ids": ["@mozilla.org/ifox/agent;1"],
++        "categories": {"profile-after-change": "IfoxAgent"},
++        "esModule": "resource://gre/modules/IfoxAgent.sys.mjs",
++        "constructor": "IfoxAgentFactory",
++        "processes": ProcessSelector.MAIN_PROCESS_ONLY,
++    },
++]
+diff --git a/toolkit/components/ifox/moz.build b/toolkit/components/ifox/moz.build
+new file mode 100644
+--- /dev/null
++++ b/toolkit/components/ifox/moz.build
+@@ -0,0 +1,28 @@
++# Innocent Fox: the launcher pipe and the agent behind it.
++# Started only by the -ifox-pipe flag; without it nothing here runs.
++
++XPIDL_MODULE = "toolkit_ifox"
++
++XPIDL_SOURCES += [
++    "nsIIfoxPipe.idl",
++]
++
++XPCOM_MANIFESTS += [
++    "components.conf",
++]
++
++EXPORTS += [
++    "IfoxPipe.h",
++]
++
++SOURCES += [
++    "IfoxPipe.cpp",
++]
++
++EXTRA_JS_MODULES += [
++    "IfoxAgent.sys.mjs",
++    "IfoxChild.sys.mjs",
++    "IfoxParent.sys.mjs",
++]
++
++FINAL_LIBRARY = "xul"
+diff --git a/toolkit/components/ifox/nsIIfoxPipe.idl b/toolkit/components/ifox/nsIIfoxPipe.idl
+new file mode 100644
+--- /dev/null
++++ b/toolkit/components/ifox/nsIIfoxPipe.idl
+@@ -0,0 +1,21 @@
++/* Innocent Fox: line-based JSON channel to the launcher over two named pipes. */
++
++#include "nsISupports.idl"
++
++[scriptable, uuid(5b1f3c2e-8d7a-4f0e-9a61-2c4e7d9b0a11)]
++interface nsIIfoxPipeListener : nsISupports
++{
++  /* One line from the launcher, without its newline. Main thread. */
++  void onLine(in AUTF8String aLine);
++  /* The launcher closed its end. Main thread. */
++  void onClose();
++};
++
++[scriptable, uuid(9e2d4a70-31c6-4b8f-b5d2-7a0c1e6f3b42)]
++interface nsIIfoxPipe : nsISupports
++{
++  /* Connects to \\.\pipe\<aName>-in (read) and \\.\pipe\<aName>-out (write). */
++  void open(in AString aName, in nsIIfoxPipeListener aListener);
++  /* Writes aLine plus a newline. aLine must not contain a newline. */
++  void send(in AUTF8String aLine);
++};
+diff --git a/toolkit/components/moz.build b/toolkit/components/moz.build
+--- a/toolkit/components/moz.build
++++ b/toolkit/components/moz.build
+@@ -164,6 +164,10 @@
+ if CONFIG["OS_ARCH"] == "WINNT":
+     DIRS += ["push"]
+ 
++# Innocent Fox: the launcher pipe and the agent behind it.
++if CONFIG["MOZ_WIDGET_TOOLKIT"] == "windows":
++    DIRS += ["ifox"]
++
+ UNIFIED_SOURCES += [
+     "/toolkit/components/antitracking/ContentBlockingAllowList.cpp",
+ ]

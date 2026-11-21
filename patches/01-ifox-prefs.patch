@@ -1,0 +1,97 @@
+diff --git a/modules/libpref/init/StaticPrefList.yaml b/modules/libpref/init/StaticPrefList.yaml
+--- a/modules/libpref/init/StaticPrefList.yaml
++++ b/modules/libpref/init/StaticPrefList.yaml
+@@ -9196,6 +9196,82 @@
+   mirror: always
+ 
+ #---------------------------------------------------------------------------
++# Prefs starting with "ifox."
++#
++# Innocent Fox fingerprint values. Each one replaces the real hardware value
++# underneath Firefox's own protections, which still apply on top. The default
++# always means "use the real value", so a profile without them is stock Firefox.
++#---------------------------------------------------------------------------
++
++# navigator.hardwareConcurrency, in pages and all worker types. 0 = real.
++# Read from worker threads, so atomic.
++- name: ifox.hardwareConcurrency
++  type: RelaxedAtomicInt32
++  value: 0
++  mirror: always
++
++# navigator.maxTouchPoints before the stock collapse rule, and CSS pointer queries. -1 = real.
++- name: ifox.maxTouchPoints
++  type: RelaxedAtomicInt32
++  value: -1
++  mirror: always
++
++# navigator.webdriver. Reported as this value even while automation runs.
++- name: ifox.webdriver
++  type: RelaxedAtomicBool
++  value: false
++  mirror: always
++
++# Screen size in device pixels, like a real monitor's: screen.*, and CSS
++# device-width and device-height. Firefox's own DPI scale (devPixelsPerPx) and
++# zoom turn it into CSS pixels. 0 = real. Media queries are evaluated on style
++# threads, so atomic. Avail size comes from the stock rule (height - 48 on
++# Windows).
++- name: ifox.screen.width
++  type: RelaxedAtomicInt32
++  value: 0
++  mirror: always
++
++- name: ifox.screen.height
++  type: RelaxedAtomicInt32
++  value: 0
++  mirror: always
++
++# Seed for the canvas and WebGL noise key. Empty = stock, a new random key
++# every browsing session. Set = the same noise every launch of this profile.
++- name: ifox.noise.seed
++  type: DataMutexString
++  value: ""
++  mirror: always
++
++# WebGL readPixels noise needs no ifox pref: add "+WebGLRandomization" to the
++# stock privacy.baselineFingerprintingProtection.overrides.
++
++# getParameter values of the claimed GPU, measured on a real machine:
++# "pname:value;pname:value,value;..." with pname in hex (0x0D33) or decimal.
++# Two values = a range or MAX_VIEWPORT_DIMS. Empty = real values.
++# Read on worker threads too (OffscreenCanvas), so a DataMutexString.
++- name: ifox.webgl.parameters
++  type: DataMutexString
++  value: ""
++  mirror: always
++
++# Comma-separated WebGL extension names this GPU lacks, hidden from both
++# getSupportedExtensions() and getExtension(). Hiding only: an extension the
++# real GPU lacks can't be added.
++- name: ifox.webgl.hiddenExtensions
++  type: DataMutexString
++  value: ""
++  mirror: always
++
++# IANA time zone for pages and every kind of worker, e.g. America/New_York.
++# "" = the real one. Windows ignores the TZ variable for such names.
++- name: ifox.timezone
++  type: DataMutexString
++  value: ""
++  mirror: always
++
++#---------------------------------------------------------------------------
+ # Prefs starting with "image."
+ #---------------------------------------------------------------------------
+ 
+diff --git a/modules/libpref/moz.build b/modules/libpref/moz.build
+--- a/modules/libpref/moz.build
++++ b/modules/libpref/moz.build
+@@ -51,6 +51,7 @@
+     "gl",
+     "html5",
+     "idle_period",
++    "ifox",
+     "image",
+     "intl",
+     "javascript",

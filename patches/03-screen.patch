@@ -1,0 +1,112 @@
+diff --git a/dom/base/nsScreen.cpp b/dom/base/nsScreen.cpp
+--- a/dom/base/nsScreen.cpp
++++ b/dom/base/nsScreen.cpp
+@@ -4,7 +4,9 @@
+ 
+ #include "nsScreen.h"
+ 
++#include "mozilla/BasePrincipal.h"
+ #include "mozilla/GeckoBindings.h"
++#include "mozilla/StaticPrefs_ifox.h"
+ #include "mozilla/dom/BrowsingContextBinding.h"
+ #include "mozilla/dom/Document.h"
+ #include "mozilla/dom/DocumentInlines.h"
+@@ -22,6 +24,29 @@
+ using namespace mozilla;
+ using namespace mozilla::dom;
+ 
++// Innocent Fox: the profile's screen, given in device pixels, as an app-unit
++// rect, or the real one. Web content only; browser UI keeps the real screen.
++// Device pixels times the context's own app units per pixel is exactly what
++// the real monitor rect goes through, so DPI scaling, zoom and rounding come
++// out the same as on a real screen of that size.
++// layout/style/nsMediaFeatures.cpp has the same rule for device-width.
++static bool IfoxScreenActive(nsPIDOMWindowInner* aOwner) {
++  Document* doc = aOwner ? aOwner->GetExtantDoc() : nullptr;
++  return StaticPrefs::ifox_screen_width() > 0 &&
++         StaticPrefs::ifox_screen_height() > 0 && doc &&
++         !doc->NodePrincipal()->IsSystemPrincipal();
++}
++
++static nsRect IfoxScreenRect(nsDeviceContext* aContext,
++                             nsPIDOMWindowInner* aOwner) {
++  if (!IfoxScreenActive(aOwner)) {
++    return aContext->GetRect();
++  }
++  const int32_t appUnitsPerDevPixel = aContext->AppUnitsPerDevPixel();
++  return nsRect(0, 0, StaticPrefs::ifox_screen_width() * appUnitsPerDevPixel,
++                StaticPrefs::ifox_screen_height() * appUnitsPerDevPixel);
++}
++
+ nsScreen::nsScreen(nsPIDOMWindowInner* aWindow)
+     : DOMEventTargetHelper(aWindow) {}
+ 
+@@ -96,7 +121,8 @@
+   if (NS_WARN_IF(!context)) {
+     return {};
+   }
+-  return CSSIntRect::FromAppUnitsRounded(context->GetRect());
++  return CSSIntRect::FromAppUnitsRounded(
++      IfoxScreenRect(context, GetOwnerWindow()));
+ }
+ 
+ CSSIntRect nsScreen::GetAvailRect() {
+@@ -142,12 +168,20 @@
+     }
+ 
+     return nsRFPService::GetSpoofedScreenAvailSize(
+-        context->GetRect(), context->GetFullZoom(), IsFullscreen());
++        IfoxScreenRect(context, GetOwnerWindow()), context->GetFullZoom(),
++        IsFullscreen());
+   }
+ 
+   nsDeviceContext* context = GetDeviceContext();
+   if (NS_WARN_IF(!context)) {
+     return {};
++  }
++  // Innocent Fox: with a fake screen and the baseline rule turned off, use
++  // the same Windows taskbar shape the baseline rule uses.
++  if (IfoxScreenActive(GetOwnerWindow())) {
++    return nsRFPService::GetSpoofedScreenAvailSize(
++        IfoxScreenRect(context, GetOwnerWindow()), context->GetFullZoom(),
++        IsFullscreen());
+   }
+   return CSSIntRect::FromAppUnitsRounded(context->GetClientRect());
+ }
+diff --git a/layout/style/nsMediaFeatures.cpp b/layout/style/nsMediaFeatures.cpp
+--- a/layout/style/nsMediaFeatures.cpp
++++ b/layout/style/nsMediaFeatures.cpp
+@@ -5,11 +5,13 @@
+ /* the features that media queries can test */
+ 
+ #include "PreferenceSheet.h"
++#include "mozilla/BasePrincipal.h"
+ #include "mozilla/GeckoBindings.h"
+ #include "mozilla/LookAndFeel.h"
+ #include "mozilla/RelativeLuminanceUtils.h"
+ #include "mozilla/StaticPrefs_browser.h"
+ #include "mozilla/StaticPrefs_gfx.h"
++#include "mozilla/StaticPrefs_ifox.h"
+ #include "mozilla/StyleSheet.h"
+ #include "mozilla/StyleSheetInlines.h"
+ #include "mozilla/dom/BrowsingContextBinding.h"
+@@ -92,6 +94,19 @@
+     // XXX The spec actually says we want the "page sheet size", but
+     // how is that different?
+     return pc->GetPageSize();
++  }
++
++  // Innocent Fox: the profile's screen in device pixels, through the same
++  // app-units-per-pixel as the real one, so device-width rounds exactly like
++  // screen.width does. Same rule as dom/base/nsScreen.cpp.
++  int32_t ifoxWidth = StaticPrefs::ifox_screen_width();
++  int32_t ifoxHeight = StaticPrefs::ifox_screen_height();
++  if (ifoxWidth > 0 && ifoxHeight > 0 &&
++      !aDocument.NodePrincipal()->IsSystemPrincipal()) {
++    const int32_t appUnitsPerDevPixel =
++        pc->DeviceContext()->AppUnitsPerDevPixel();
++    return nsSize(ifoxWidth * appUnitsPerDevPixel,
++                  ifoxHeight * appUnitsPerDevPixel);
+   }
+ 
+   return pc->DeviceContext()->GetDeviceSurfaceDimensions();

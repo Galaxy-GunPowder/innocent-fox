@@ -1,0 +1,79 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Sign up</title>
+<style>
+  body { font: 16px sans-serif; margin: 40px; }
+  input, button { display: block; margin: 12px 0; font-size: 16px; padding: 6px; }
+  #pay { width: 360px; height: 160px; border: 1px solid #888; }
+  #spacer { height: 2600px; }
+  #report { display: none; }
+</style>
+</head>
+<body>
+<h1>Create your account</h1>
+<input id="email" placeholder="Email">
+<input id="pass" type="password" placeholder="Password">
+<button id="create"><span>Create account</span></button>
+<iframe id="pay" src="http://127.0.0.2:8767/frame.html"></iframe>
+<div id="host"></div>
+<div id="spacer"></div>
+<button id="far">Far button</button>
+<pre id="report"></pre>
+<script>
+  // What a detection script could collect, kept the way such a script would.
+  const startGlobals = new Set(Object.getOwnPropertyNames(window));
+  const log = { clicks: [], keys: [], moves: 0, wheels: [], untrusted: 0, screenOffsets: new Set(), unfocusedKeys: 0, hiddenEvents: 0 };
+  let movesSinceClick = 0;
+  const shadow = document.getElementById("host").attachShadow({ mode: "closed" });
+  shadow.innerHTML = '<button id="shadowbtn">Shadow button</button>';
+
+  function note(e) {
+    if (!e.isTrusted) log.untrusted++;
+    if (document.visibilityState !== "visible") log.hiddenEvents++;
+    if ("screenX" in e && e.type !== "wheel") {
+      log.screenOffsets.add(Math.round(e.screenX - e.clientX) + "," + Math.round(e.screenY - e.clientY));
+    }
+  }
+  addEventListener("mousemove", e => { note(e); log.moves++; movesSinceClick++; }, true);
+  addEventListener("wheel", e => { note(e); log.wheels.push({ trusted: e.isTrusted, mode: e.deltaMode, dy: e.deltaY }); }, true);
+  addEventListener("mousedown", e => {
+    note(e);
+    log.lastDownHover = e.target.matches(":hover");
+  }, true);
+  function onClick(e) {
+    note(e);
+    log.clicks.push({
+      target: e.target.id || e.target.parentElement?.id || e.target.localName,
+      trusted: e.isTrusted, pointerType: e.pointerType, source: e.mozInputSource,
+      detail: e.detail, hover: log.lastDownHover, movesBefore: movesSinceClick,
+    });
+    movesSinceClick = 0;
+  }
+  addEventListener("click", onClick, true);
+  shadow.addEventListener("click", e => { if (e.target.id === "shadowbtn") log.shadowClicked = e.isTrusted; }, true);
+  addEventListener("keydown", e => {
+    note(e);
+    if (!document.hasFocus()) log.unfocusedKeys++;
+    log.keys.push({ key: e.key, code: e.code, keyCode: e.keyCode, shift: e.shiftKey, trusted: e.isTrusted });
+  }, true);
+
+  let portOpen = null;
+  fetch("http://127.0.0.1:2828/", { mode: "no-cors" }).then(() => { portOpen = true; }, () => { portOpen = false; });
+
+  setInterval(() => {
+    const added = Object.getOwnPropertyNames(window).filter(n => !startGlobals.has(n));
+    document.getElementById("report").textContent = JSON.stringify({
+      ...log,
+      screenOffsets: [...log.screenOffsets],
+      email: document.getElementById("email").value,
+      pass: document.getElementById("pass").value,
+      webdriver: navigator.webdriver,
+      addedGlobals: added,
+      portOpen,
+    });
+  }, 100);
+</script>
+</body>
+</html>

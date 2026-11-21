@@ -1,0 +1,30 @@
+diff --git a/js/xpconnect/src/Sandbox.cpp b/js/xpconnect/src/Sandbox.cpp
+--- a/js/xpconnect/src/Sandbox.cpp
++++ b/js/xpconnect/src/Sandbox.cpp
+@@ -111,6 +111,7 @@
+ #include "mozilla/NullPrincipal.h"
+ #include "mozilla/ResultExtensions.h"
+ #include "mozilla/StaticPrefs_extensions.h"
++#include "mozilla/StaticPrefs_ifox.h"
+ 
+ using namespace mozilla;
+ using namespace mozilla::dom;
+@@ -1337,6 +1338,18 @@
+   }
+ 
+   xpc::SetPrefableRealmOptions(realmOptions);
++  // ifox: sandboxes on a page (automation scripts, extension content
++  // scripts) keep the same clock as the page itself.
++  if (!isSystemPrincipal) {
++    nsAutoCString ifoxTimeZone;
++    {
++      auto zone = StaticPrefs::ifox_timezone();
++      ifoxTimeZone = *zone;
++    }
++    if (!ifoxTimeZone.IsEmpty()) {
++      realmOptions.behaviors().setTimeZoneOverride(ifoxTimeZone.get());
++    }
++  }
+   if (!isSystemPrincipal &&
+       (!windowOfProto || !windowOfProto->CrossOriginIsolated())) {
+     creationOptions.setDefineSharedArrayBufferConstructor(false);

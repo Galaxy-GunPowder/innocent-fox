@@ -1,0 +1,66 @@
+diff --git a/toolkit/components/resistfingerprinting/nsRFPService.cpp b/toolkit/components/resistfingerprinting/nsRFPService.cpp
+--- a/toolkit/components/resistfingerprinting/nsRFPService.cpp
++++ b/toolkit/components/resistfingerprinting/nsRFPService.cpp
+@@ -36,6 +36,7 @@
+ #include "mozilla/RefPtr.h"
+ #include "mozilla/Services.h"
+ #include "mozilla/Sprintf.h"
++#include "mozilla/StaticPrefs_ifox.h"
+ #include "mozilla/StaticPrefs_javascript.h"
+ #include "mozilla/StaticPrefs_privacy.h"
+ #include "mozilla/StaticPtr.h"
+@@ -1321,6 +1322,42 @@
+ // ============================================================================
+ // ============================================================================
+ // Randomization Stuff
++
++// Innocent Fox: with ifox.noise.seed set, the browsing session key is
++// HMAC-SHA256(seed, origin attributes) instead of a random UUID. The origin
++// attributes hold the top-level site, so each site still gets its own noise,
++// but the same profile gives the same noise on every launch.
++static Maybe<nsID> IfoxSeededSessionKey(const nsACString& aOriginSuffix) {
++  nsAutoCString seed;
++  {
++    auto lock = StaticPrefs::ifox_noise_seed();
++    seed = *lock;
++  }
++  if (seed.IsEmpty()) {
++    return Nothing();
++  }
++
++  HMAC hmac;
++  if (NS_FAILED(hmac.Begin(SEC_OID_SHA256,
++                           Span(reinterpret_cast<const uint8_t*>(seed.get()),
++                                seed.Length())))) {
++    return Nothing();
++  }
++  if (NS_FAILED(hmac.Update(
++          reinterpret_cast<const uint8_t*>(aOriginSuffix.BeginReading()),
++          aOriginSuffix.Length()))) {
++    return Nothing();
++  }
++  nsTArray<uint8_t> digest;
++  if (NS_FAILED(hmac.End(digest)) || digest.Length() < sizeof(nsID)) {
++    return Nothing();
++  }
++
++  nsID key;
++  memcpy(&key, digest.Elements(), sizeof(nsID));
++  return Some(key);
++}
++
+ nsresult nsRFPService::GetBrowsingSessionKey(
+     const OriginAttributes& aOriginAttributes, nsID& aBrowsingSessionKey) {
+   MOZ_ASSERT(XRE_IsParentProcess());
+@@ -1358,8 +1395,9 @@
+     return NS_OK;
+   }
+ 
+-  nsID& newKey =
+-      mBrowsingSessionKeys.InsertOrUpdate(oaSuffix, nsID::GenerateUUID());
++  Maybe<nsID> seededKey = IfoxSeededSessionKey(oaSuffix);
++  nsID& newKey = mBrowsingSessionKeys.InsertOrUpdate(
++      oaSuffix, seededKey ? *seededKey : nsID::GenerateUUID());
+ 
+   MOZ_LOG(gResistFingerprintingLog, LogLevel::Debug,
+           ("Generated browsing session key: %s\n", newKey.ToString().get()));

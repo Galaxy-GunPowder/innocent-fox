@@ -1,0 +1,29 @@
+diff --git a/js/xpconnect/src/nsXPConnect.cpp b/js/xpconnect/src/nsXPConnect.cpp
+--- a/js/xpconnect/src/nsXPConnect.cpp
++++ b/js/xpconnect/src/nsXPConnect.cpp
+@@ -17,6 +17,7 @@
+ #include "mozilla/Likely.h"
+ #include "mozilla/ScriptPreloader.h"
+ #include "mozilla/StaticPrefs_javascript.h"
++#include "mozilla/StaticPrefs_ifox.h"
+ 
+ #include "AccessCheck.h"
+ #include "GeckoProfiler.h"
+@@ -545,6 +546,17 @@
+   } else if (!aTimezoneOverride.IsEmpty()) {
+     aOptions.behaviors().setTimeZoneOverride(
+         NS_ConvertUTF16toUTF8(aTimezoneOverride).get());
++  } else if (!aIsSystemPrincipal) {
++    // Innocent Fox: the profile's time zone for every page and worker realm.
++    // Called on worker threads too, hence the locked string pref.
++    nsAutoCString ifoxTimeZone;
++    {
++      auto zone = StaticPrefs::ifox_timezone();
++      ifoxTimeZone = *zone;
++    }
++    if (!ifoxTimeZone.IsEmpty()) {
++      aOptions.behaviors().setTimeZoneOverride(ifoxTimeZone.get());
++    }
+   }
+   aOptions.creationOptions().setAlwaysUseFdlibm(aAlwaysUseFdlibm);
+   if (aLocaleEnUS) {

@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Payment</title></head>
+<body style="font: 14px sans-serif">
+<input id="card" placeholder="Card number">
+<button id="paybtn">Pay</button>
+<pre id="report" style="display:none"></pre>
+<script>
+  // Cross-site frame (its own process): records what it saw, same as the page.
+  const log = { keys: 0, untrusted: 0, clicked: null };
+  addEventListener("keydown", e => { log.keys++; if (!e.isTrusted) log.untrusted++; }, true);
+  addEventListener("click", e => { if (e.target.id === "paybtn") log.clicked = e.isTrusted; }, true);
+  setInterval(() => {
+    document.getElementById("report").textContent =
+      JSON.stringify({ ...log, card: document.getElementById("card").value, origin: location.origin });
+  }, 100);
+</script>
+</body>
+</html>

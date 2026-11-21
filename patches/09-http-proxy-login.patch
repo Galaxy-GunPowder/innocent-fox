@@ -1,0 +1,15 @@
+diff --git a/netwerk/protocol/http/nsHttpChannelAuthProvider.cpp b/netwerk/protocol/http/nsHttpChannelAuthProvider.cpp
+--- a/netwerk/protocol/http/nsHttpChannelAuthProvider.cpp
++++ b/netwerk/protocol/http/nsHttpChannelAuthProvider.cpp
+@@ -1597,7 +1597,10 @@
+     if (mProxyInfo) {
+       nsAutoCString type;
+       mProxyInfo->GetType(type);
+-      if (type.EqualsLiteral("https") || type.EqualsLiteral("masque")) {
++      // ifox: plain http proxies take the login the same way, so automation
++      // can log in without the person-facing 407 prompt.
++      if (type.EqualsLiteral("https") || type.EqualsLiteral("masque") ||
++          type.EqualsLiteral("http")) {
+         // Let this be overriden by anything from the cache.
+         auto const& pa = mProxyInfo->ProxyAuthorizationHeader();
+         if (!pa.IsEmpty()) {

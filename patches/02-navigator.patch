@@ -1,0 +1,94 @@
+diff --git a/dom/base/Navigator.cpp b/dom/base/Navigator.cpp
+--- a/dom/base/Navigator.cpp
++++ b/dom/base/Navigator.cpp
+@@ -13,6 +13,7 @@
+ #include "mozilla/Preferences.h"
+ #include "mozilla/StaticPrefs_beacon.h"
+ #include "mozilla/StaticPrefs_dom.h"
++#include "mozilla/StaticPrefs_ifox.h"
+ #include "mozilla/dom/BodyExtractor.h"
+ #include "mozilla/dom/FetchBinding.h"
+ #include "mozilla/dom/File.h"
+@@ -912,6 +913,13 @@
+   NS_ENSURE_TRUE(widget, 0);
+   uint32_t maxTouchPoints = widget->GetMaxTouchPoints();
+ 
++  // Innocent Fox: the profile's touch points replace the real ones; the stock
++  // collapse rule below still applies on top.
++  if (aCallerType != CallerType::System &&
++      StaticPrefs::ifox_maxTouchPoints() >= 0) {
++    maxTouchPoints = uint32_t(StaticPrefs::ifox_maxTouchPoints());
++  }
++
+   if (aCallerType != CallerType::System &&
+       nsContentUtils::ShouldResistFingerprinting(
+           GetDocShell(), RFPTarget::MaxTouchPointsCollapse)) {
+@@ -2376,27 +2384,9 @@
+ 
+ /* static */
+ bool Navigator::Webdriver() {
+-#ifdef ENABLE_WEBDRIVER
+-  nsCOMPtr<nsIMarionette> marionette = do_GetService(NS_MARIONETTE_CONTRACTID);
+-  if (marionette) {
+-    bool isBrowserAutomationRunning = false;
+-    marionette->GetIsBrowserAutomationRunning(&isBrowserAutomationRunning);
+-    if (isBrowserAutomationRunning) {
+-      return true;
+-    }
+-  }
+-
+-  nsCOMPtr<nsIRemoteAgent> agent = do_GetService(NS_REMOTEAGENT_CONTRACTID);
+-  if (agent) {
+-    bool isBrowserAutomationRunning = false;
+-    agent->GetIsBrowserAutomationRunning(&isBrowserAutomationRunning);
+-    if (isBrowserAutomationRunning) {
+-      return true;
+-    }
+-  }
+-#endif
+-
+-  return false;
++  // Innocent Fox: report the profile's value, even while automation runs.
++  // Stock Firefox returns true whenever Marionette or the remote agent is on.
++  return StaticPrefs::ifox_webdriver();
+ }
+ 
+ AutoplayPolicy Navigator::GetAutoplayPolicy(AutoplayPolicyMediaType aType) {
+diff --git a/dom/workers/RuntimeService.cpp b/dom/workers/RuntimeService.cpp
+--- a/dom/workers/RuntimeService.cpp
++++ b/dom/workers/RuntimeService.cpp
+@@ -26,6 +26,7 @@
+ #include "mozilla/Monitor.h"
+ #include "mozilla/Preferences.h"
+ #include "mozilla/ScopeExit.h"
++#include "mozilla/StaticPrefs_ifox.h"
+ #include "mozilla/StaticPrefs_javascript.h"
+ #include "mozilla/TimeStamp.h"
+ #include "mozilla/dom/AtomList.h"
+@@ -2137,15 +2138,23 @@
+     (void)unclampedHardwareConcurrency.compareExchange(0, numberOfProcessors);
+   }
+ 
++  // Innocent Fox: the profile's core count replaces the real one; the stock
++  // tiering and clamping below still apply on top. One place for pages and
++  // all worker types, so they can never disagree.
++  uint32_t cores = uint32_t(unclampedHardwareConcurrency);
++  if (int32_t ifoxCores = StaticPrefs::ifox_hardwareConcurrency();
++      ifoxCores > 0) {
++    cores = uint32_t(ifoxCores);
++  }
++
+   if (MOZ_UNLIKELY(aRFPTiered)) {
+-    if (unclampedHardwareConcurrency >= 8) {
++    if (cores >= 8) {
+       return 8;
+     }
+     return 4;
+   }
+ 
+-  return std::min(uint32_t(unclampedHardwareConcurrency),
+-                  StaticPrefs::dom_maxHardwareConcurrency());
++  return std::min(cores, StaticPrefs::dom_maxHardwareConcurrency());
+ }
+ 
+ // nsISupports
