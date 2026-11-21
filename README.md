@@ -10,55 +10,72 @@
   <a href="#download"><img src="https://img.shields.io/badge/Download-2da44e?style=for-the-badge" alt="Download"></a>
 </p>
 
-Each profile looks like one real computer: its own screen, cores, GPU, clock, languages and proxy.
-The values are set inside Firefox's C++, so pages find no injected scripts to detect.
-Python drives it over a private pipe, with mouse and keys that move like a person's.
+## Introduction
+
+Innocent Fox is a version of Firefox 160 for running many separate online identities from Python.
+Each identity, called a profile, keeps its own settings, cookies, logins and internet connection.
+To a website, every profile looks like an ordinary person on an ordinary computer.
+
+What's different from Firefox:
+
+- **Its own proxy for each profile.** Every profile connects through its own proxy, and the time zone and languages follow the proxy's country. The browser never falls back to your real connection, and WebRTC and DNS lookups go through the proxy too.
+- **Its own device for each profile.** Screen size, display scale, CPU cores, graphics card, touch support and canvas noise are set per profile. The changes are made inside the browser engine, so every page, frame and worker sees the same values.
+- **Scripting that websites can't see.** Python controls the browser through a private channel instead of the usual automation port. Mouse movement and typing follow human timing, and pages find no webdriver flag or injected code.
+- **Simple profile management.** Create, load, update, wipe or delete profiles from Python. For quick jobs, the built-in default profile gives you a new random device every time and keeps nothing afterwards.
+
+Install it with one `pip` command; the browser downloads itself the first time you use it.
 
 ## Major changes
 
 ### Proxy
 
-Each profile has its own proxy, and nothing leaves around it.
+Each profile has its own proxy, and the browser makes sure nothing slips past it.
 
-| Change | Result |
+| Change | What you get |
 |---|---|
-| HTTPS, HTTP and SOCKS5, with login | 5 text formats accepted |
-| Clock and languages follow the exit | Brazil exit gave pt-BR and the São Paulo clock |
-| WebRTC through the proxy only | 0 addresses shown, real IP never |
-| DNS through the proxy | only the proxy's own name is looked up locally |
-| Kill switch | if the proxy drops, pages fail; never your real IP |
+| HTTPS, HTTP and SOCKS5 proxies, with login | Paste a proxy in any of 5 common formats |
+| Time zone and languages follow the proxy | A Brazil proxy gave Portuguese (pt-BR) and the São Paulo clock |
+| WebRTC goes through the proxy only | Sites see 0 local addresses and never your real IP |
+| DNS lookups go through the proxy | Only the proxy's own address is looked up on your computer |
+| Kill switch | If the proxy drops, pages stop loading instead of using your real connection |
 
 ### Fingerprint
 
-| Change | Result |
+Websites read many small details to recognise a computer. Each profile gives them a consistent set.
+
+| Change | What you get |
 |---|---|
-| Set per profile, in C++ | 15 values: screen, scale, cores, GPU, touch, clock and more |
-| Devices copied from real machines | 4 devices, each with its own screen, cores and GPU |
-| Canvas noise key kept per profile | the same profile looks the same after restarts |
+| Device values set per profile, inside the engine | 15 values, such as screen, display scale, CPU cores, graphics card and touch |
+| Devices copied from real computers | 4 real machine types, each with its own matching screen, cores and graphics card |
+| Canvas noise kept per profile | A saved profile looks the same every time you open it |
 
 ### Scripting
 
-| Change | Result |
+You drive the browser from Python, and websites can't tell it's being scripted.
+
+| Change | What you get |
 |---|---|
-| Control over a named pipe, not a port | CreepJS: 0% headless, 0% stealth, no lies |
-| Mouse and keys enter like OS input | trusted events, human paths and typing rhythm |
-| Selectors reach into iframes and shadow roots | cross-site iframes too |
+| A private channel instead of an automation port | The CreepJS test scores 0% headless and 0% stealth |
+| Mouse and keyboard work like a real person's | Natural mouse paths and typing rhythm, reported as real input |
+| Works inside frames and shadow DOM | Payment frames from other sites included |
 
 ### Profiles
 
-| Change | Result |
+Profiles are folders you manage from Python, and each one shows a full report of itself.
+
+| Change | What you get |
 |---|---|
-| Saved profiles | same computer, cookies and logins every run |
-| Built-in `default` | random device and seed every run, nothing kept |
-| Session details | proxies, exit countries and sites visited, from `print(p)` |
+| Saved profiles | The same device, cookies and logins every time |
+| A built-in default profile | A new random device every run, with nothing kept afterwards |
+| Session history | `print(p)` lists the proxies, countries and websites each profile has used |
 
-### Quiet
+### Fewer background connections
 
-Background calls pages can't see are off: 33 hosts on an idle tab, down to 8.
+Firefox normally contacts many services on its own. Most are turned off: an idle tab now reaches 8 addresses instead of 33.
 
 ## Full list of changes
 
-Compared with stock Firefox 160. Firefox source: 11 patches, 1,208 added lines in 23 files ([patches/](patches)).
+Every change, side by side with standard Firefox 160. The browser changes are 11 patches: 1,208 added lines in 23 Firefox files ([patches/](patches)).
 
 ### Fingerprint
 
