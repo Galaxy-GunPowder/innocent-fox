@@ -75,7 +75,7 @@ Create, load, update, wipe or delete profiles from Python. For quick jobs, the b
 
 <div align="center">
 
-<a href="#major-changes">Major changes</a> &nbsp;·&nbsp; <a href="#full-list-of-changes">Full list of changes</a> &nbsp;·&nbsp; <a href="#how-to-use">How to use</a> &nbsp;·&nbsp; <a href="#tests">Tests</a> &nbsp;·&nbsp; <a href="#license">License</a>
+<a href="#major-changes">Major changes</a> &nbsp;·&nbsp; <a href="#how-to-use">How to use</a> &nbsp;·&nbsp; <a href="#tests">Tests</a> &nbsp;·&nbsp; <a href="#license">License</a>
 
 <sub><a href="#proxy">Proxy</a> &nbsp;·&nbsp; <a href="#fingerprint">Fingerprint</a> &nbsp;·&nbsp; <a href="#scripting">Scripting</a> &nbsp;·&nbsp; <a href="#profiles">Profiles</a> &nbsp;·&nbsp; <a href="#download">Download</a> &nbsp;·&nbsp; <a href="#your-first-script">First script</a> &nbsp;·&nbsp; <a href="#common-calls">Common calls</a> &nbsp;·&nbsp; <a href="#build-it-yourself">Build it yourself</a></sub>
 
@@ -84,6 +84,8 @@ Create, load, update, wipe or delete profiles from Python. For quick jobs, the b
 <br>
 
 # Major changes
+
+These are the main changes; the full list is in [docs/build-list.md](https://github.com/Galaxy-GunPowder/innocent-fox/blob/main/docs/build-list.md).
 
 ### Proxy
 
@@ -130,13 +132,6 @@ Profiles are folders you manage from Python, and each one shows a full report of
 ### Fewer background connections
 
 Firefox normally contacts many services on its own. Most are turned off: an idle tab now reaches 8 addresses instead of 33.
-
-<br>
-
-# Full list of changes
-
-Every change, with how it was made and what is still planned, is listed in the build list:
-[docs/build-list.md](https://github.com/Galaxy-GunPowder/innocent-fox/blob/main/docs/build-list.md).
 
 <br>
 
