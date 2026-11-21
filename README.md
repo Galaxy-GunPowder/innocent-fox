@@ -30,12 +30,10 @@ Install it with one `pip` command; the browser downloads itself the first time y
 # Contents
 
 1. [Major changes](#major-changes): [Proxy](#proxy) · [Fingerprint](#fingerprint) · [Scripting](#scripting) · [Profiles](#profiles) · [Fewer background connections](#fewer-background-connections)
-2. [Full list of changes](#full-list-of-changes): [Fingerprint](#fingerprint-1) · [Control](#control) · [Network](#network) · [Python side](#python-side) · [Branding](#branding) · [Not done yet](#not-done-yet)
-3. [Download](#download)
-4. [How to use](#how-to-use)
-5. [Tests](#tests)
-6. [Build from source](#build-from-source)
-7. [License](#license)
+2. [Full list of changes](#full-list-of-changes)
+3. [How to use](#how-to-use): [Download](#download) · [Your first script](#your-first-script) · [Common calls](#common-calls) · [Build it yourself](#build-it-yourself)
+4. [Tests](#tests)
+5. [License](#license)
 
 ---
 
@@ -93,83 +91,30 @@ Firefox normally contacts many services on its own. Most are turned off: an idle
 
 # Full list of changes
 
-Every change, side by side with standard Firefox 160. The browser changes are 11 patches: 1,208 added lines in 23 Firefox files ([patches/](patches)).
-
-### Fingerprint
-
-| Value | Firefox 160 | Innocent Fox | How |
-|---|---|---|---|
-| User agent, platform, oscpu | this computer's | the profile's | stock prefs |
-| Screen size, CSS device-width | real screen | the profile's | [patch 03](patches/03-screen.patch) |
-| Display scale | real, zoomed by Windows "Text size" (101% gives 1.0169) | the profile's, no zoom | stock prefs |
-| CPU cores, pages and workers | real | the profile's | [patch 02](patches/02-navigator.patch) |
-| Touch points, CSS pointer queries | real | the profile's | [patches 02](patches/02-navigator.patch), [06](patches/06-pointer.patch) |
-| `navigator.webdriver` | true when automated | always false | [patch 02](patches/02-navigator.patch) |
-| Time zone, pages, workers, sandboxes | this computer's | the proxy exit's | [patches 08](patches/08-timezone.patch), [10](patches/10-sandbox-timezone.patch) |
-| Languages | this computer's | the exit country's | stock pref |
-| GPU vendor and renderer | real | a claimed GPU, or real | stock prefs |
-| WebGL limits and extensions | real GPU's | the claimed GPU's | [patch 05](patches/05-webgl-gpu.patch) |
-| WebGL pixel noise | off | on with a claimed GPU | stock pref |
-| Canvas noise | new key each session | key kept per profile | [patch 04](patches/04-noise-seed.patch) |
-| Audio sample rate | the sound card's | the profile's | stock pref |
-
-All values come from `ifox.*` prefs, registered in [patch 01](patches/01-ifox-prefs.patch). Pages can't read prefs.
-
-### Control
-
-| | Firefox 160 | Innocent Fox | How |
-|---|---|---|---|
-| Automation | Marionette or BiDi on a TCP port | named pipe, no port | [patch 07](patches/07-pipe-agent.patch) |
-| Input | synthesized test events | through the top window, like OS input | [patch 07](patches/07-pipe-agent.patch) |
-| Driven window covered or behind | pages go hidden | acts as the front window | stock prefs |
-
-### Network
-
-| | Firefox 160 | Innocent Fox | How |
-|---|---|---|---|
-| HTTP proxy login | a prompt for a person | sent without a prompt | [patch 09](patches/09-http-proxy-login.patch) |
-| Proxy down | can fall back to direct | pages fail | stock pref |
-| DNS with a SOCKS proxy | local | through the proxy | stock pref |
-| WebRTC behind a proxy | own UDP, can show the real IP | proxy only | stock pref |
-| Idle background calls | 33 hosts | 8 | stock prefs |
-
-### Python side
-
-| Change | How |
-|---|---|
-| Profiles: create, load, update, wipe history (settings kept), delete | `ifox/profile.py` |
-| `tab.check()`: what the page sees, next to the profile | `ifox/browser.py` |
-| Browser closes with your script, even on a crash or kill | Windows job object |
-| Browser downloads itself on first use, SHA-256 checked | `ifox/install.py` |
-
-### Branding
-
-Own name and fox icon, on Firefox's unofficial branding ([patch 11](patches/11-branding.patch)).
-
-### Not done yet
-
-Claiming other Firefox versions, a script gate and a WireGuard tunnel are planned. The full plan is in [docs/build-list.md](docs/build-list.md).
-
-<p align="right"><a href="#contents">Back to contents</a></p>
-
----
-
-# Download
-
-Windows 10/11, 64-bit, Python 3.10+.
-
-```
-pip install https://github.com/Galaxy-GunPowder/innocent-fox/releases/download/v0.1.1/innocent_fox-0.1.1-py3-none-any.whl
-```
-
-The first `Browser()` downloads the built browser (130 MB) once and checks its SHA-256. Nothing to patch or build.
-The browser zip is also on the [releases page](https://github.com/Galaxy-GunPowder/innocent-fox/releases); `ifox-install --zip <file>` installs it.
+Every change, with how it was made and what is still planned, is listed in the build list:
+[docs/build-list.md](https://github.com/Galaxy-GunPowder/innocent-fox/blob/main/docs/build-list.md).
 
 <p align="right"><a href="#contents">Back to contents</a></p>
 
 ---
 
 # How to use
+
+The download is the finished, ready-to-use browser: everything above is already built in.
+Install it, write a short Python script, and it runs. Building it yourself is only needed if you want to change the browser.
+
+### Download
+
+You need Windows 10 or 11 (64-bit) and Python 3.10 or newer. Install with one command:
+
+```
+pip install https://github.com/Galaxy-GunPowder/innocent-fox/releases/download/v0.1.1/innocent_fox-0.1.1-py3-none-any.whl
+```
+
+The first time your script opens a browser, it downloads the browser itself (130 MB) and checks it. After that it starts in about 2 seconds.
+You can also get the browser zip from the [releases page](https://github.com/Galaxy-GunPowder/innocent-fox/releases) and install it with `ifox-install --zip <file>`.
+
+### Your first script
 
 ```python
 from ifox import Browser, profile
@@ -186,16 +131,29 @@ with Browser("shop1") as b:
     b.open("https://example.com/")
 ```
 
-| Call | Does |
-|---|---|
-| `b.open(url)`, `tab.goto(url)` | open a page |
-| `tab.click`, `type`, `press`, `hover` | input like a person |
-| `tab.wait(sel)`, `text(sel)`, `exists(sel)` | read the page |
-| `tab.frame("iframe#pay")` | the same calls inside an iframe |
-| `tab.js("return document.title")` | run JS the page can't see |
-| `tab.shot("page.png")` | screenshot |
+### Common calls
 
-Every setting and call: [docs/scripting.md](docs/scripting.md) and [examples/profiles.py](examples/profiles.py).
+| Call | What it does |
+|---|---|
+| `b.open(url)`, `tab.goto(url)` | Open a page |
+| `tab.click`, `type`, `press`, `hover` | Use the mouse and keyboard like a person |
+| `tab.wait(sel)`, `text(sel)`, `exists(sel)` | Read the page |
+| `tab.frame("iframe#pay")` | The same calls inside a frame |
+| `tab.js("return document.title")` | Run JavaScript the page can't see |
+| `tab.shot("page.png")` | Take a screenshot |
+
+Every setting and call is explained in [docs/scripting.md](docs/scripting.md), with a full example in [examples/profiles.py](examples/profiles.py).
+
+### Build it yourself
+
+Only needed if you want to change the browser. The scripts expect the folder `D:\ifox` (no spaces in the path), and the first build takes about 90 minutes.
+
+```
+python scripts/fetch_source.py          # Firefox 160.0.1 source into D:\ifox\src
+python scripts/patchtool.py apply       # patches/*.patch, in order
+python scripts/build.py                 # build the browser
+python scripts/build.py package         # make the release zip
+```
 
 <p align="right"><a href="#contents">Back to contents</a></p>
 
@@ -210,21 +168,6 @@ Every setting and call: [docs/scripting.md](docs/scripting.md) and [examples/pro
 | WebRTC leak | 6/6, WebRTC only, local test proxy |
 | CreepJS | 0% headless, 0% stealth, no lies |
 | Real proxy (Decodo) | FAIL, 10/11: DNS servers show Singapore next to a US exit (the provider's entry server looks names up) |
-
-<p align="right"><a href="#contents">Back to contents</a></p>
-
----
-
-# Build from source
-
-Only needed to change the browser. The scripts expect `D:\ifox` (no spaces). First build about 90 minutes.
-
-```
-python scripts/fetch_source.py          # Firefox 160.0.1 source into D:\ifox\src
-python scripts/patchtool.py apply       # patches/*.patch, in order
-python scripts/build.py                 # mach build
-python scripts/build.py package         # the release zip
-```
 
 <p align="right"><a href="#contents">Back to contents</a></p>
 
