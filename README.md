@@ -25,6 +25,20 @@ What's different from Firefox:
 
 Install it with one `pip` command; the browser downloads itself the first time you use it.
 
+---
+
+## Contents
+
+1. [Major changes](#major-changes): [Proxy](#proxy) · [Fingerprint](#fingerprint) · [Scripting](#scripting) · [Profiles](#profiles) · [Fewer background connections](#fewer-background-connections)
+2. [Full list of changes](#full-list-of-changes): [Fingerprint](#fingerprint-1) · [Control](#control) · [Network](#network) · [Python side](#python-side) · [Branding](#branding)
+3. [Download](#download)
+4. [How to use](#how-to-use)
+5. [Tests](#tests)
+6. [Build from source](#build-from-source)
+7. [License](#license)
+
+---
+
 ## Major changes
 
 ### Proxy
@@ -72,6 +86,10 @@ Profiles are folders you manage from Python, and each one shows a full report of
 ### Fewer background connections
 
 Firefox normally contacts many services on its own. Most are turned off: an idle tab now reaches 8 addresses instead of 33.
+
+<p align="right"><a href="#contents">Back to contents</a></p>
+
+---
 
 ## Full list of changes
 
@@ -130,6 +148,10 @@ Own name and fox icon, on Firefox's unofficial branding ([patch 11](patches/11-b
 
 Not done yet: claiming other Firefox versions, a script gate, a WireGuard tunnel. Plan: [docs/build-list.md](docs/build-list.md).
 
+<p align="right"><a href="#contents">Back to contents</a></p>
+
+---
+
 ## Download
 
 Windows 10/11, 64-bit, Python 3.10+.
@@ -140,6 +162,10 @@ pip install https://github.com/Galaxy-GunPowder/innocent-fox/releases/download/v
 
 The first `Browser()` downloads the built browser (130 MB) once and checks its SHA-256. Nothing to patch or build.
 The browser zip is also on the [releases page](https://github.com/Galaxy-GunPowder/innocent-fox/releases); `ifox-install --zip <file>` installs it.
+
+<p align="right"><a href="#contents">Back to contents</a></p>
+
+---
 
 ## How to use
 
@@ -169,6 +195,10 @@ with Browser("shop1") as b:
 
 Every setting and call: [docs/scripting.md](docs/scripting.md) and [examples/profiles.py](examples/profiles.py).
 
+<p align="right"><a href="#contents">Back to contents</a></p>
+
+---
+
 ## Tests
 
 | Test | Result |
@@ -178,6 +208,10 @@ Every setting and call: [docs/scripting.md](docs/scripting.md) and [examples/pro
 | WebRTC leak | 6/6, WebRTC only, local test proxy |
 | CreepJS | 0% headless, 0% stealth, no lies |
 | Real proxy (Decodo) | FAIL, 10/11: DNS servers show Singapore next to a US exit (the provider's entry server looks names up) |
+
+<p align="right"><a href="#contents">Back to contents</a></p>
+
+---
 
 ## Build from source
 
@@ -190,7 +224,13 @@ python scripts/build.py                 # mach build
 python scripts/build.py package         # the release zip
 ```
 
+<p align="right"><a href="#contents">Back to contents</a></p>
+
+---
+
 ## License
 
 MPL 2.0. Not made or endorsed by Mozilla; see [NOTICE.md](NOTICE.md).
 Use it only on sites and accounts where you're allowed to.
+
+<p align="right"><a href="#contents">Back to contents</a></p>
