@@ -1,14 +1,30 @@
-<h1 align="center">Innocent Fox</h1>
+<div align="center">
 
-<p align="center">Fully scriptable, identity-secure browser based on Firefox 160.</p>
+<img src="branding/fox-256.png" width="132" alt="Innocent Fox">
 
-<p align="center">
-  <a href="#major-changes"><img src="https://img.shields.io/badge/Major_changes-1f6feb?style=for-the-badge" alt="Major changes"></a>
-  &nbsp;
-  <a href="#full-list-of-changes"><img src="https://img.shields.io/badge/Full_list_of_changes-30363d?style=for-the-badge" alt="Full list of changes"></a>
-  &nbsp;
-  <a href="#download"><img src="https://img.shields.io/badge/Download-2da44e?style=for-the-badge" alt="Download"></a>
+<h1>Innocent Fox</h1>
+
+<p>Fully scriptable, identity-secure browser based on Firefox 160.</p>
+
+<p>
+  <img src="https://img.shields.io/badge/based_on-Firefox_160-2f7f99?logo=firefoxbrowser&logoColor=white" alt="Based on Firefox 160">
+  <img src="https://img.shields.io/badge/Windows-10_%7C_11-2f7f99?logo=windows&logoColor=white" alt="Windows 10 and 11">
+  <img src="https://img.shields.io/badge/Python-3.10+-2f7f99?logo=python&logoColor=white" alt="Python 3.10 or newer">
+  <img src="https://img.shields.io/github/v/release/Galaxy-GunPowder/innocent-fox?color=1d4e74&label=release" alt="Latest release">
+  <img src="https://img.shields.io/badge/license-MPL_2.0-1d4e74" alt="MPL 2.0 license">
 </p>
+
+<p>
+  <a href="#major-changes"><img src="https://img.shields.io/badge/Major_changes-2f7f99?style=for-the-badge" alt="Major changes"></a>
+  &nbsp;
+  <a href="#how-to-use"><img src="https://img.shields.io/badge/How_to_use-3b82c4?style=for-the-badge" alt="How to use"></a>
+  &nbsp;
+  <a href="#download"><img src="https://img.shields.io/badge/Download-1d4e74?style=for-the-badge" alt="Download"></a>
+</p>
+
+</div>
+
+<br>
 
 # Introduction
 
@@ -16,26 +32,56 @@ Innocent Fox is a version of Firefox 160 for running many separate online identi
 Each identity, called a profile, keeps its own settings, cookies, logins and internet connection.
 To a website, every profile looks like an ordinary person on an ordinary computer.
 
-What's different from Firefox:
+<table>
+<tr>
+<td width="50%" valign="top">
 
-- **Its own proxy for each profile.** Every profile connects through its own proxy, and the time zone and languages follow the proxy's country. The browser never falls back to your real connection, and WebRTC and DNS lookups go through the proxy too.
-- **Its own device for each profile.** Screen size, display scale, CPU cores, graphics card, touch support and canvas noise are set per profile. The changes are made inside the browser engine, so every page, frame and worker sees the same values.
-- **Scripting that websites can't see.** Python controls the browser through a private channel instead of the usual automation port. Mouse movement and typing follow human timing, and pages find no webdriver flag or injected code.
-- **Simple profile management.** Create, load, update, wipe or delete profiles from Python. For quick jobs, the built-in default profile gives you a new random device every time and keeps nothing afterwards.
+**Its own proxy for each profile**
 
-Install it with one `pip` command; the browser downloads itself the first time you use it.
+Every profile connects through its own proxy, and the time zone and languages follow the proxy's country. The browser never falls back to your real connection; WebRTC and DNS go through the proxy too.
 
----
+</td>
+<td width="50%" valign="top">
+
+**Its own device for each profile**
+
+Screen size, display scale, CPU cores, graphics card, touch support and canvas noise are set per profile, inside the browser engine. Every page, frame and worker sees the same values.
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+**Scripting that websites can't see**
+
+Python controls the browser through a private channel instead of the usual automation port. Mouse movement and typing follow human timing, with no webdriver flag or injected code.
+
+</td>
+<td width="50%" valign="top">
+
+**Simple profile management**
+
+Create, load, update, wipe or delete profiles from Python. For quick jobs, the built-in default profile gives you a new random device every time and keeps nothing.
+
+</td>
+</tr>
+</table>
+
+<p align="center">Install it with one <code>pip</code> command. The browser downloads itself the first time you use it.</p>
+
+<br>
 
 # Contents
 
-1. [Major changes](#major-changes): [Proxy](#proxy) · [Fingerprint](#fingerprint) · [Scripting](#scripting) · [Profiles](#profiles) · [Fewer background connections](#fewer-background-connections)
-2. [Full list of changes](#full-list-of-changes)
-3. [How to use](#how-to-use): [Download](#download) · [Your first script](#your-first-script) · [Common calls](#common-calls) · [Build it yourself](#build-it-yourself)
-4. [Tests](#tests)
-5. [License](#license)
+<div align="center">
 
----
+<a href="#major-changes">Major changes</a> &nbsp;·&nbsp; <a href="#full-list-of-changes">Full list of changes</a> &nbsp;·&nbsp; <a href="#how-to-use">How to use</a> &nbsp;·&nbsp; <a href="#tests">Tests</a> &nbsp;·&nbsp; <a href="#license">License</a>
+
+<sub><a href="#proxy">Proxy</a> &nbsp;·&nbsp; <a href="#fingerprint">Fingerprint</a> &nbsp;·&nbsp; <a href="#scripting">Scripting</a> &nbsp;·&nbsp; <a href="#profiles">Profiles</a> &nbsp;·&nbsp; <a href="#download">Download</a> &nbsp;·&nbsp; <a href="#your-first-script">First script</a> &nbsp;·&nbsp; <a href="#common-calls">Common calls</a> &nbsp;·&nbsp; <a href="#build-it-yourself">Build it yourself</a></sub>
+
+</div>
+
+<br>
 
 # Major changes
 
@@ -85,18 +131,14 @@ Profiles are folders you manage from Python, and each one shows a full report of
 
 Firefox normally contacts many services on its own. Most are turned off: an idle tab now reaches 8 addresses instead of 33.
 
-<p align="right"><a href="#contents">Back to contents</a></p>
-
----
+<br>
 
 # Full list of changes
 
 Every change, with how it was made and what is still planned, is listed in the build list:
 [docs/build-list.md](https://github.com/Galaxy-GunPowder/innocent-fox/blob/main/docs/build-list.md).
 
-<p align="right"><a href="#contents">Back to contents</a></p>
-
----
+<br>
 
 # How to use
 
@@ -155,9 +197,7 @@ python scripts/build.py                 # build the browser
 python scripts/build.py package         # make the release zip
 ```
 
-<p align="right"><a href="#contents">Back to contents</a></p>
-
----
+<br>
 
 # Tests
 
@@ -169,13 +209,14 @@ python scripts/build.py package         # make the release zip
 | CreepJS | 0% headless, 0% stealth, no lies |
 | Real proxy (Decodo) | FAIL, 10/11: DNS servers show Singapore next to a US exit (the provider's entry server looks names up) |
 
-<p align="right"><a href="#contents">Back to contents</a></p>
-
----
+<br>
 
 # License
 
-MPL 2.0. Not made or endorsed by Mozilla; see [NOTICE.md](NOTICE.md).
-Use it only on sites and accounts where you're allowed to.
+<div align="center">
 
-<p align="right"><a href="#contents">Back to contents</a></p>
+MPL 2.0 &nbsp;·&nbsp; Not made or endorsed by Mozilla &nbsp;·&nbsp; <a href="NOTICE.md">Notice</a>
+
+<sub>Use it only on sites and accounts where you're allowed to.</sub>
+
+</div>
