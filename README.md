@@ -14,25 +14,7 @@
   <img src="https://img.shields.io/badge/license-MPL_2.0-1d4e74" alt="MPL 2.0 license">
 </p>
 
-<p>
-  <a href="#major-changes"><img src="https://img.shields.io/badge/Major_changes-2f7f99?style=for-the-badge" alt="Major changes"></a>
-  &nbsp;
-  <a href="#how-to-use"><img src="https://img.shields.io/badge/How_to_use-3b82c4?style=for-the-badge" alt="How to use"></a>
-  &nbsp;
-  <a href="#download"><img src="https://img.shields.io/badge/Download-1d4e74?style=for-the-badge" alt="Download"></a>
-</p>
-
-</div>
-
-<br>
-
-# Contents
-
-<div align="center">
-
-<a href="#introduction">Introduction</a> &nbsp;·&nbsp; <a href="#major-changes">Major changes</a> &nbsp;·&nbsp; <a href="#how-to-use">How to use</a> &nbsp;·&nbsp; <a href="#license">License</a>
-
-<sub><a href="#design-goals">Design goals</a> &nbsp;·&nbsp; <a href="#test-results">Test results</a> &nbsp;·&nbsp; <a href="#download">Download</a> &nbsp;·&nbsp; <a href="#your-first-script">First script</a> &nbsp;·&nbsp; <a href="#common-calls">Common calls</a> &nbsp;·&nbsp; <a href="#build-it-yourself">Build it yourself</a></sub>
+<p><a href="#introduction">Introduction</a> &nbsp;·&nbsp; <a href="#major-changes">Major changes</a> &nbsp;·&nbsp; <a href="#how-to-use">How to use</a> &nbsp;·&nbsp; <a href="#license">License</a></p>
 
 </div>
 
