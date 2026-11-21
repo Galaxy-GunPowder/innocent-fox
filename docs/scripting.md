@@ -4,6 +4,9 @@ Python drives the browser over a private pipe. Pages can't see it.
 
 ## Start
 
+The first `Browser()` downloads the built browser (130 MB) once into `%LOCALAPPDATA%\InnocentFox`.
+`ifox-install` does the same ahead of time. `IFOX_HOME` moves that folder.
+
 ```python
 from ifox import Browser, LoadError
 

@@ -27,11 +27,12 @@ from . import human
 from .network import agent_args, proxy_prefs
 from .pipe import PipePair
 from . import profile as pf
+from . import install
 from .install import INSTALLED
 from .winjob import Job
 
 # Where the browser and the saved profiles live: the env vars if set, else the
-# dev build on the build machine, else what `ifox-install` put in %LOCALAPPDATA%.
+# dev build on the build machine, else %LOCALAPPDATA%, downloaded there on first use.
 _DEV = Path(r"D:\ifox\obj\dist\bin\firefox.exe")
 BROWSER = Path(os.environ.get("IFOX_BROWSER") or (_DEV if _DEV.exists() else INSTALLED))
 PROFILES = pf.ROOT
@@ -159,8 +160,13 @@ class Browser:
         args: extra command-line flags.
 
         The browser ends with this Python process, however it ends."""
-        if not Path(binary).exists():
-            raise IfoxError(f"Innocent Fox not found at {binary}; run ifox-install (or set IFOX_BROWSER)")
+        if Path(binary) == INSTALLED:
+            try:
+                binary = install.ensure()          # downloads the browser the first time
+            except RuntimeError as e:
+                raise IfoxError(str(e)) from None
+        elif not Path(binary).exists():
+            raise IfoxError(f"Innocent Fox not found at {binary} (set IFOX_BROWSER, or leave binary out)")
         if place:      # older form: languages, and the clock when there is no proxy
             settings.setdefault("langs", fp.PLACES[place]["langs"])
             if not settings.get("proxy"):
@@ -197,6 +203,7 @@ class Browser:
         self.job = Job()
         # -wait-for-browser: stock flag that keeps firefox.exe running until the
         # browser quits, instead of handing off to a second process and exiting.
+        self.binary = Path(binary)
         self.proc = self.job.start([str(binary), "-wait-for-browser", "-no-remote", "-profile", str(self.folder),
                                     "-ifox-pipe", self.pipe.name, *(["-headless"] if headless else []), *args])
         _open.add(self)
@@ -211,7 +218,7 @@ class Browser:
         connect.start()
         connect.join(timeout)
         if connect.is_alive():
-            raise IfoxError(f"the browser never opened the pipe within {timeout} s; is {BROWSER} an Innocent Fox build?")
+            raise IfoxError(f"the browser never opened the pipe within {timeout} s; is {self.binary} an Innocent Fox build?")
         self._reading = threading.Thread(target=self._reader, daemon=True)
         self._reading.start()
         hello = self.call("hello", _wait=timeout)

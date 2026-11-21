@@ -8,11 +8,11 @@ Windows 10/11, 64-bit. Python 3.10+.
 ## Install
 
 ```
-pip install https://github.com/Galaxy-GunPowder/innocent-fox/releases/download/v0.1.0/innocent_fox-0.1.0-py3-none-any.whl
-ifox-install
+pip install https://github.com/Galaxy-GunPowder/innocent-fox/releases/download/v0.1.1/innocent_fox-0.1.1-py3-none-any.whl
 ```
 
-`ifox-install` downloads the browser (137 MB) from this repo's release and checks its SHA-256.
+That's all. The first `Browser()` downloads the built browser (130 MB) once and checks its SHA-256; nothing to patch or build.
+To download it ahead of time, run `ifox-install`.
 
 ## Use
 
