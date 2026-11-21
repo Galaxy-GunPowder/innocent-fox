@@ -10,7 +10,7 @@
   <a href="#download"><img src="https://img.shields.io/badge/Download-2da44e?style=for-the-badge" alt="Download"></a>
 </p>
 
-## Introduction
+# Introduction
 
 Innocent Fox is a version of Firefox 160 for running many separate online identities from Python.
 Each identity, called a profile, keeps its own settings, cookies, logins and internet connection.
@@ -27,10 +27,10 @@ Install it with one `pip` command; the browser downloads itself the first time y
 
 ---
 
-## Contents
+# Contents
 
 1. [Major changes](#major-changes): [Proxy](#proxy) · [Fingerprint](#fingerprint) · [Scripting](#scripting) · [Profiles](#profiles) · [Fewer background connections](#fewer-background-connections)
-2. [Full list of changes](#full-list-of-changes): [Fingerprint](#fingerprint-1) · [Control](#control) · [Network](#network) · [Python side](#python-side) · [Branding](#branding)
+2. [Full list of changes](#full-list-of-changes): [Fingerprint](#fingerprint-1) · [Control](#control) · [Network](#network) · [Python side](#python-side) · [Branding](#branding) · [Not done yet](#not-done-yet)
 3. [Download](#download)
 4. [How to use](#how-to-use)
 5. [Tests](#tests)
@@ -39,7 +39,7 @@ Install it with one `pip` command; the browser downloads itself the first time y
 
 ---
 
-## Major changes
+# Major changes
 
 ### Proxy
 
@@ -91,7 +91,7 @@ Firefox normally contacts many services on its own. Most are turned off: an idle
 
 ---
 
-## Full list of changes
+# Full list of changes
 
 Every change, side by side with standard Firefox 160. The browser changes are 11 patches: 1,208 added lines in 23 Firefox files ([patches/](patches)).
 
@@ -146,13 +146,15 @@ All values come from `ifox.*` prefs, registered in [patch 01](patches/01-ifox-pr
 
 Own name and fox icon, on Firefox's unofficial branding ([patch 11](patches/11-branding.patch)).
 
-Not done yet: claiming other Firefox versions, a script gate, a WireGuard tunnel. Plan: [docs/build-list.md](docs/build-list.md).
+### Not done yet
+
+Claiming other Firefox versions, a script gate and a WireGuard tunnel are planned. The full plan is in [docs/build-list.md](docs/build-list.md).
 
 <p align="right"><a href="#contents">Back to contents</a></p>
 
 ---
 
-## Download
+# Download
 
 Windows 10/11, 64-bit, Python 3.10+.
 
@@ -167,7 +169,7 @@ The browser zip is also on the [releases page](https://github.com/Galaxy-GunPowd
 
 ---
 
-## How to use
+# How to use
 
 ```python
 from ifox import Browser, profile
@@ -199,7 +201,7 @@ Every setting and call: [docs/scripting.md](docs/scripting.md) and [examples/pro
 
 ---
 
-## Tests
+# Tests
 
 | Test | Result |
 |---|---|
@@ -213,7 +215,7 @@ Every setting and call: [docs/scripting.md](docs/scripting.md) and [examples/pro
 
 ---
 
-## Build from source
+# Build from source
 
 Only needed to change the browser. The scripts expect `D:\ifox` (no spaces). First build about 90 minutes.
 
@@ -228,7 +230,7 @@ python scripts/build.py package         # the release zip
 
 ---
 
-## License
+# License
 
 MPL 2.0. Not made or endorsed by Mozilla; see [NOTICE.md](NOTICE.md).
 Use it only on sites and accounts where you're allowed to.
