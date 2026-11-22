@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/license-MPL_2.0-1d4e74" alt="MPL 2.0 license">
 </p>
 
-<p><a href="#introduction">Introduction</a> &nbsp;·&nbsp; <a href="#test-results">Test results</a> &nbsp;·&nbsp; <a href="#how-to-use">How to use</a> &nbsp;·&nbsp; <a href="#license">License</a> &nbsp;·&nbsp; <a href="#special-thanks">Special thanks</a></p>
+<p><a href="#introduction">Introduction</a> &nbsp;·&nbsp; <a href="#features">Features</a> &nbsp;·&nbsp; <a href="#test-results">Test results</a> &nbsp;·&nbsp; <a href="#how-to-use">How to use</a> &nbsp;·&nbsp; <a href="#license">License</a> &nbsp;·&nbsp; <a href="#special-thanks">Special thanks</a></p>
 
 </div>
 
@@ -26,8 +26,32 @@ Innocent Fox is an anti-detect, identity-safe, fully scriptable browser, built b
 Each profile can be Firefox 158, 159 or 160, identical to the official release in 7 fingerprint layers, from the TLS handshake to WebGL.
 
 **Design goals:** fully scriptable from Python, no automation traces, and every layer of an identity agrees.<br>
-**Changes:** 27 major changes for identity safety, in 13 patches. [Summary](docs/major-changes.md) · [Full list](docs/build-list.md)<br>
+**Changes:** 27 major changes for identity safety, in 13 patches. [Features](#features) · [Full list](docs/build-list.md)<br>
 **Test results:** 6/6 public bot checkers passed, and Firefox 158, 159 and 160 each show 0 differences from official. [All results](#test-results)
+
+<br>
+
+# Features
+
+| Category | Feature |
+|---|---|
+| Versions | One build, shown to websites as Firefox 158, 159 or 160; each shows 0 differences from official in the [identity lab](tests/identity) |
+| Scripting | Python drives every page, frame and shadow DOM through a private pipe, not an automation port |
+| Scripting | Mouse and keyboard use the normal input path, with human mouse paths and typing rhythm |
+| Bot detection | `navigator.webdriver` is false, and your scripts run in a sandbox the page can't see |
+| Bot detection | Pages stay focused and visible, and a driven window never takes the foreground from your program |
+| Fingerprint | 15 device values set inside the engine, such as screen, display scale, CPU cores and touch |
+| Fingerprint | This computer's GPU by default, so WebGL pixels match the GPU name pages see |
+| Fingerprint | Canvas noise key kept per profile, so a profile looks the same after restarts |
+| Proxy | HTTPS, HTTP and SOCKS5 proxies with login, pasted in any of 5 common formats |
+| Proxy | Time zone and languages follow the proxy's country |
+| Proxy | WebRTC and DNS go through the proxy; sites see 0 local addresses |
+| Proxy | Kill switch: if the proxy drops, pages stop loading instead of using your connection |
+| Profiles | Saved profiles keep device, version, cookies and logins every run; the default profile is new every run |
+| Background | Idle background connections cut from 33 addresses to 8 |
+| Install | The browser downloads itself on first use and closes when your script ends |
+
+Every change, with how it was made: [summary](docs/major-changes.md) · [full list](docs/build-list.md)
 
 <br>
 
@@ -53,23 +77,35 @@ Public bot and fingerprint checkers, run on 21 November 2026 with the built-in d
 
 # How to use
 
-### Download or build
+### Download and install
 
-Windows 10 or 11 (64-bit) and Python 3.10 or newer:
+All you need is a Windows 10 or 11 PC (64-bit) and Python. The browser itself installs on its own.
 
-```
-pip install https://github.com/Galaxy-GunPowder/innocent-fox/releases/download/v0.2.2/innocent_fox-0.2.2-py3-none-any.whl
-```
+1. Install Python 3.10 or newer from [python.org](https://www.python.org/downloads/). On the installer's first screen, tick "Add python.exe to PATH".
+2. Open PowerShell and install Innocent Fox:
 
-The first `Browser()` downloads the browser (130 MB) and checks it; after that it starts in about 2 seconds.
-Building it yourself is only needed to change the browser; it takes about 90 minutes, in `D:\ifox`:
+   ```
+   pip install https://github.com/Galaxy-GunPowder/innocent-fox/releases/download/v0.2.2/innocent_fox-0.2.2-py3-none-any.whl
+   ```
 
-```
-python scripts/fetch_source.py          # Firefox 160.0.1 source into D:\ifox\src
-python scripts/patchtool.py apply       # patches/*.patch, in order
-python scripts/build.py                 # build the browser
-python scripts/build.py package         # make the release zip
-```
+3. Save this as `start.py`:
+
+   ```python
+   from ifox import Browser
+
+   with Browser() as b:                    # the default profile: a new identity every run
+       b.open("https://example.com/")
+       b.wait_closed()                     # keeps the window open until you close it
+   ```
+
+4. Run it in PowerShell, in the folder where you saved it:
+
+   ```
+   python start.py
+   ```
+
+The first run downloads the browser (130 MB) and checks it; after that it starts in about 2 seconds.
+The sections below show what to put in your script.
 
 ### Manage profiles
 
@@ -97,8 +133,6 @@ p = profile.create(
 )
 print(p)                         # every setting, what pages see, and session history
 ```
-
-Browser version: one build, shown to websites as Firefox 158, 159 or 160; each shows 0 differences from official in the [identity lab](tests/identity).
 
 #### Load, change, delete
 
@@ -148,7 +182,19 @@ with Browser(p) as b:                            # same device, version and cook
     print(tab.check())                           # what the page sees, next to the profile
 ```
 
+Save any of these as a `.py` file and run it with `python yourfile.py`, as in step 4 above.
 Every setting and call: [docs/scripting.md](docs/scripting.md).
+
+### Build it yourself
+
+Only needed to change the browser itself. It takes about 90 minutes, in `D:\ifox`:
+
+```
+python scripts/fetch_source.py          # Firefox 160.0.1 source into D:\ifox\src
+python scripts/patchtool.py apply       # patches/*.patch, in order
+python scripts/build.py                 # build the browser
+python scripts/build.py package         # make the release zip
+```
 
 <br>
 
