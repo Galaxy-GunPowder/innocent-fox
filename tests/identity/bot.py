@@ -27,6 +27,9 @@ from ifox.winjob import Job  # noqa: E402
 
 BUILD = Path(r"D:\ifox\obj\dist\bin\firefox.exe")
 SAME = {**ifb.QUIET, **ifb.FRONT}          # what ifox sets for a stock driven run; the plain run gets it too
+# ...except staying behind the program in front: the plain run stands for a person starting
+# Firefox, whose window comes to the front.
+SAME = {k: v for k, v in SAME.items() if k != "ifox.window.noActivate"}
 
 
 def ports(root_pid):

@@ -46,7 +46,40 @@ diff --git a/widget/windows/nsWindow.cpp b/widget/windows/nsWindow.cpp
                  (void)GetAttention(2);
                }
              }
-@@ -8017,6 +8026,10 @@
+@@ -1814,6 +1823,12 @@
+         } else {
+           if (mWindowType == WindowType::Dialog && !CanTakeFocus())
+             flags |= SWP_NOACTIVATE;
++          // Innocent Fox: showing an already shown window again (the focus
++          // manager does this when it raises a window) must not bring it
++          // in front of another program.
++          if (StaticPrefs::ifox_window_noActivate() && !CanTakeFocus()) {
++            flags |= SWP_NOACTIVATE | SWP_NOZORDER;
++          }
+ 
+           ::SetWindowPos(mWnd, HWND_TOP, 0, 0, 0, 0, flags);
+         }
+@@ -2460,6 +2475,19 @@
+ void nsWindow::SetFocus(Raise aRaise, mozilla::dom::CallerType aCallerType) {
+   if (!mWnd) {
+     return;
++  }
++  // Innocent Fox: with another program in front, leave Windows focus alone;
++  // ::SetFocus would activate this window and take the foreground from it.
++  // Firefox's own focus (focusmanager.testmode) is handled by the caller.
++  if (StaticPrefs::ifox_window_noActivate()) {
++    HWND fgWnd = ::GetForegroundWindow();
++    DWORD pid = 0;
++    if (fgWnd) {
++      ::GetWindowThreadProcessId(fgWnd, &pid);
++    }
++    if (fgWnd && pid != ::GetCurrentProcessId()) {
++      return;
++    }
+   }
+ #ifdef WINSTATE_DEBUG_OUTPUT
+   if (mWnd == WinUtils::GetTopLevelHWND(mWnd)) {
+@@ -8017,6 +8045,10 @@
    if (pid == ::GetCurrentProcessId()) {
      return true;
    }
