@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/license-MPL_2.0-1d4e74" alt="MPL 2.0 license">
 </p>
 
-<p><a href="#introduction">Introduction</a> &nbsp;·&nbsp; <a href="#versions">Versions</a> &nbsp;·&nbsp; <a href="#major-changes">Major changes</a> &nbsp;·&nbsp; <a href="#how-to-use">How to use</a> &nbsp;·&nbsp; <a href="#license">License</a> &nbsp;·&nbsp; <a href="#special-thanks">Special thanks</a></p>
+<p><a href="#introduction">Introduction</a> &nbsp;·&nbsp; <a href="#design-goals">Design goals</a> &nbsp;·&nbsp; <a href="#test-results">Test results</a> &nbsp;·&nbsp; <a href="#versions">Versions</a> &nbsp;·&nbsp; <a href="#major-changes">Major changes</a> &nbsp;·&nbsp; <a href="#how-to-use">How to use</a> &nbsp;·&nbsp; <a href="#license">License</a> &nbsp;·&nbsp; <a href="#special-thanks">Special thanks</a></p>
 
 </div>
 
@@ -22,23 +22,16 @@
 
 # Introduction
 
-Innocent Fox is an anti-detect browser you script from Python.
-Each profile is one online identity, and every layer of it describes the same person.
+Innocent Fox is an anti-detect, identity-safe, fully scriptable browser.
+It is Firefox 160 with its source code changed directly: 27 major changes for identity safety, in 13 patches.
+Each profile can be Firefox 158, 159 or 160, identical to the official release in 7 fingerprint layers, from the TLS handshake to WebGL.
+See the [major changes](docs/major-changes.md) and the [full list of changes](docs/build-list.md).
 
-### What a profile holds
+**Test results:** 6/6 public bot checkers passed, and Firefox 158, 159 and 160 each show 0 differences from official. [All results](#test-results)
 
-| Layer | What websites see | Set by |
-|---|---|---|
-| Device | CPU cores, screen, display scale, graphics card, canvas | `device`: random, then kept |
-| Version | Web APIs and the TLS and HTTP/2 handshake of Firefox 158, 159 or 160 | `version`: random, then kept |
-| Network | IP address; WebRTC and DNS go through the proxy too | `proxy` |
-| Location | Time zone and languages of the proxy's country | `timezone`, `langs` |
-| Storage | Cookies, logins and history | kept per profile |
-| Behaviour | Human mouse paths and typing, no automation traces | built in |
+<br>
 
-The built-in default profile is new every run; saved profiles stay the same person every run.
-
-### Design goals
+# Design goals
 
 | Goal | What it means |
 |---|---|
@@ -46,7 +39,9 @@ The built-in default profile is new every run; saved profiles stay the same pers
 | Bot detection countered | Pages find no automation traces: no webdriver flag, no control port, no injected code |
 | Consistent identity | Every layer agrees: a Firefox 158 profile has 158's TLS, a US proxy has a US clock |
 
-### Test results
+<br>
+
+# Test results
 
 Public bot and fingerprint checkers, run on 21 November 2026 with the built-in default profile (Firefox 160) through a US residential proxy.
 
@@ -135,6 +130,19 @@ with Browser("shop1") as b:
     b.open("https://example.com/")
 ```
 
+### What a profile holds
+
+| Layer | What websites see | Set by |
+|---|---|---|
+| Device | CPU cores, screen, display scale, graphics card, canvas | `device`: random, then kept |
+| Version | Web APIs and the TLS and HTTP/2 handshake of Firefox 158, 159 or 160 | `version`: random, then kept |
+| Network | IP address; WebRTC and DNS go through the proxy too | `proxy` |
+| Location | Time zone and languages of the proxy's country | `timezone`, `langs` |
+| Storage | Cookies, logins and history | kept per profile |
+| Behaviour | Human mouse paths and typing, no automation traces | built in |
+
+The built-in default profile is new every run; saved profiles stay the same person every run.
+
 ### Common calls
 
 | Call | What it does |
@@ -175,6 +183,7 @@ MPL 2.0 &nbsp;·&nbsp; Not made or endorsed by Mozilla &nbsp;·&nbsp; <a href="N
 
 # Special thanks
 
+- The Mozilla team, for the bad business strategy of open-sourcing 28 years of work, ever since Netscape released its code on 31 March 1998.
 - My $50 and 10 hours of my life.
 - Claude Opus 5.5 (High), for its reasonable price and coding that keeps getting better, alongside Jensen Huang's great GPUs and the electricity company that made this happen.
 - Everyone who pushed back on Google's Web Environment Integrity, so the web still lets unsigned browsers in, for the past 10 years and the next 0 to 12 months at best.
