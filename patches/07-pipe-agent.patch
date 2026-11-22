@@ -2,7 +2,7 @@ diff --git a/toolkit/components/ifox/IfoxAgent.sys.mjs b/toolkit/components/ifox
 new file mode 100644
 --- /dev/null
 +++ b/toolkit/components/ifox/IfoxAgent.sys.mjs
-@@ -0,0 +1,600 @@
+@@ -0,0 +1,624 @@
 +/* Innocent Fox agent, parent process.
 + *
 + * Runs only when Firefox starts with -ifox-pipe <name>. Reads one JSON
@@ -111,6 +111,8 @@ new file mode 100644
 +        return this.navigate(args, b => b.reload());
 +      case "select":
 +        return this.select(args);
++      case "front":
++        return this.front(args);
 +      case "close":
 +        return this.close(args);
 +      case "find":
@@ -146,6 +148,15 @@ new file mode 100644
 +    for (let i = 0; i < 600; i++) {
 +      const win = Services.wm.getMostRecentWindow("navigator:browser");
 +      if (win?.gBrowserInit?.delayedStartupFinished) {
++        // A window opened behind another program (ifox.window.noActivate) was
++        // never activated by Windows. In focusmanager.testmode, focus() marks
++        // it active inside Firefox without raising it on screen.
++        if (
++          Services.prefs.getBoolPref("focusmanager.testmode", false) &&
++          Services.focus.activeWindow !== win
++        ) {
++          win.focus();
++        }
 +        return win;
 +      }
 +      await sleep(100);
@@ -287,6 +298,19 @@ new file mode 100644
 +    win.gBrowser.selectedTab = win.gBrowser.getTabForBrowser(b);
 +    win.focus();
 +    return null;
++  }
++
++  // A person switches to a tab before using it: the tab comes to the front of
++  // its window, without raising the window. True if it was behind.
++  front({ tab }) {
++    const b = this.browser(tab);
++    const win = this.winOf(b);
++    if (win.gBrowser.selectedBrowser === b) {
++      return false;
++    }
++    win.gBrowser.selectedTab = win.gBrowser.getTabForBrowser(b);
++    focusContent(b);
++    return true;
 +  }
 +
 +  close({ tab }) {

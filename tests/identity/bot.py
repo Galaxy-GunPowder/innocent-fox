@@ -128,6 +128,13 @@ def main():
     checks = rules(out["driven"][0])
     failed = [c for c in checks if not c[1]]
 
+    # Firefox focuses a window Windows brings to the front. With another program in front (a game),
+    # the plain run opens behind it and never gets focus; Firefox also holds enumerateDevices() back
+    # until a page has focus. Those differences then say what was in front, not who drives.
+    unfocused = any(r["bot"].get("hasFocus") is False for r in out["plain"])
+    if unfocused:
+        print("\nNOT JUDGED: the plain run never got focus, so another program was in front.\n"
+              "  bot.hasFocus and bot.mediaDevices can't be compared; rerun with nothing in front.")
     print(f"\nAutomation traces (driven differs from plain): {len(traces)}")
     for p, x, y in traces:
         print(f"  {p}\n    plain:  {x}\n    driven: {y}")
@@ -136,7 +143,7 @@ def main():
         print(f"  {'PASS' if ok else 'FAIL'}  {name}: {value}")
     if noise:
         print("\nleft out as noise: " + ", ".join(sorted(noise)[:15]))
-    return 1 if traces or failed else 0
+    return 2 if unfocused else (1 if traces or failed else 0)
 
 
 if __name__ == "__main__":

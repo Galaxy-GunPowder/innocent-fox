@@ -23,6 +23,8 @@ A summary of what Innocent Fox changes, one line each. Every change, with how it
 | Versions | One build shows websites Firefox 158, 159 or 160, matching each official release down to TLS and HTTP/2 |
 | Versions | A new profile picks one of the 3 at random and keeps it; `version="158"` fixes it |
 | Bot detection | A page opened by a script has focus, as one typed into the address bar does |
+| Bot detection | A script using a tab behind brings it to the front first, so its clicks and keys land there |
+| Windows | A driven window never takes the foreground from the program you are using |
 | Profiles | Saved profiles keep the same device, cookies and logins every run |
 | Profiles | Built-in default profile: a new random device every run, nothing kept |
 | Profiles | `print(p)` shows every setting plus session history: proxies, countries, websites |

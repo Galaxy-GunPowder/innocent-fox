@@ -92,6 +92,8 @@ QUIET = {
 FRONT = {
     "focusmanager.testmode": True,
     "widget.windows.window_occlusion_tracking.enabled": False,
+    # Never take the foreground from the program you are using; pages can't tell.
+    "ifox.window.noActivate": True,
 }
 
 
@@ -484,8 +486,20 @@ class Tab:
 
     # Acting
 
+    def _front(self):
+        """A person switches to a tab before using it. Input goes to the tab in
+        front, so a tab behind comes forward first, and pages see the same order:
+        visible and focused, then the mouse and keys."""
+        if not self.b.call("front", tab=self.id):
+            return
+        deadline = time.time() + 3
+        while time.time() < deadline and self.js("return document.visibilityState") != "visible":
+            time.sleep(0.05)
+        time.sleep(self.b.rng.uniform(0.3, 0.7))
+
     def _ready(self, sel, timeout):
         """Finds the element and wheels it into view like a person would."""
+        self._front()
         el = self.find(sel, timeout)
         for _ in range(80):
             if el["inView"]:
@@ -530,6 +544,7 @@ class Tab:
     def press(self, combo):
         """A key or chord: "Enter", "Tab", "Control+a", "Shift+Tab"."""
         *mods, key = combo.split("+")
+        self._front()
         for m in mods:
             self.b.call("key", tab=self.id, key=m, type="down")
             time.sleep(self.b.rng.uniform(0.03, 0.08))
@@ -545,6 +560,8 @@ class Tab:
         if sel is not None:
             self.click(sel, timeout)
             time.sleep(self.b.rng.uniform(0.15, 0.4))
+        else:
+            self._front()
         if clear:
             self.press("Control+a")
             time.sleep(self.b.rng.uniform(0.05, 0.15))

@@ -216,6 +216,9 @@ def main():
           + (f"; {len(noise)} value(s) changed between runs of one browser and were left out" if noise else ""))
     for p, x, y in found:
         print(f"\n  {p}\n    {first}: {x}\n    {second_label}: {y}")
+    if any(r["bot"].get("hasFocus") is False for (label, _), r in results.items()):
+        print("\nNOTE: a run had no page focus, so another program was in front. bot.* values then\n"
+              "  say what was in front, not which browser it is; rerun with nothing in front.")
     if noise:
         print("\nleft out as noise: " + ", ".join(sorted(noise)[:20]))
     if a.assemble == "ours":

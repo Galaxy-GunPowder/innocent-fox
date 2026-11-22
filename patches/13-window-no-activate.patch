@@ -1,0 +1,59 @@
+diff --git a/modules/libpref/init/StaticPrefList.yaml b/modules/libpref/init/StaticPrefList.yaml
+--- a/modules/libpref/init/StaticPrefList.yaml
++++ b/modules/libpref/init/StaticPrefList.yaml
+@@ -9283,6 +9283,14 @@
+   value: false
+   mirror: always
+ 
++# true = a new window never takes the foreground from another program: it
++# opens just behind it, without flashing the taskbar. Pages don't see this; a
++# driven page keeps focus through focusmanager.testmode.
++- name: ifox.window.noActivate
++  type: RelaxedAtomicBool
++  value: false
++  mirror: always
++
+ # Firefox 160 probes video decoders with AssertCanInstantiate. false = 159's
+ # probe, without it.
+ - name: ifox.compat.media.assertCanInstantiate
+diff --git a/widget/windows/nsWindow.cpp b/widget/windows/nsWindow.cpp
+--- a/widget/windows/nsWindow.cpp
++++ b/widget/windows/nsWindow.cpp
+@@ -105,6 +105,7 @@
+ #include "mozilla/StaticPrefs_browser.h"
+ #include "mozilla/StaticPrefs_dom.h"
+ #include "mozilla/StaticPrefs_gfx.h"
++#include "mozilla/StaticPrefs_ifox.h"
+ #include "mozilla/StaticPrefs_layout.h"
+ #include "mozilla/StaticPrefs_ui.h"
+ #include "mozilla/StaticPrefs_widget.h"
+@@ -1756,8 +1757,16 @@
+               ::ShowWindow(mWnd, SW_SHOWNORMAL);
+             } else {
+               ::ShowWindow(mWnd, SW_SHOWNOACTIVATE);
+-              // Don't flicker the window if we're restoring session
+-              if (!sIsRestoringSession) {
++              if (StaticPrefs::ifox_window_noActivate()) {
++                // Innocent Fox: just behind the program in front, so it
++                // neither covers it nor asks for attention.
++                HWND fgWnd = ::GetForegroundWindow();
++                if (fgWnd && fgWnd != mWnd) {
++                  ::SetWindowPos(mWnd, fgWnd, 0, 0, 0, 0,
++                                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
++                }
++              } else if (!sIsRestoringSession) {
++                // Don't flicker the window if we're restoring session
+                 (void)GetAttention(2);
+               }
+             }
+@@ -8017,6 +8026,10 @@
+   if (pid == ::GetCurrentProcessId()) {
+     return true;
+   }
++  // Innocent Fox: another program is in front; leave it there.
++  if (StaticPrefs::ifox_window_noActivate()) {
++    return false;
++  }
+ 
+   bool windowsVisible = false;
+   ::EnumWindows(EnumVisibleWindowsProc,
