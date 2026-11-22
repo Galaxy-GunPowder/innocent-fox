@@ -4,7 +4,7 @@
 
 <h1>Innocent Fox</h1>
 
-<p>Fully scriptable, identity-secure assembled browser: one download that is Firefox 158, 159 or 160 to websites.</p>
+<p>Scriptable anti-detect browser, built on Firefox.</p>
 
 <p>
   <img src="https://img.shields.io/badge/Firefox-158_%7C_159_%7C_160-2f7f99?logo=firefoxbrowser&logoColor=white" alt="Firefox 158, 159 and 160">
@@ -22,8 +22,21 @@
 
 # Introduction
 
-Innocent Fox is an assembled browser for running many separate online identities from Python: one Firefox 160 build that each profile shows websites as Firefox 158, 159 or 160.
-Each profile keeps its own settings, cookies, logins and internet connection, and to a website it looks like an ordinary person on an ordinary computer.
+Innocent Fox is an anti-detect browser you script from Python.
+Each profile is one online identity, and every layer of it describes the same person.
+
+### What a profile holds
+
+| Layer | What websites see | Set by |
+|---|---|---|
+| Device | CPU cores, screen, display scale, graphics card, canvas | `device`: random, then kept |
+| Version | Web APIs and the TLS and HTTP/2 handshake of Firefox 158, 159 or 160 | `version`: random, then kept |
+| Network | IP address; WebRTC and DNS go through the proxy too | `proxy` |
+| Location | Time zone and languages of the proxy's country | `timezone`, `langs` |
+| Storage | Cookies, logins and history | kept per profile |
+| Behaviour | Human mouse paths and typing, no automation traces | built in |
+
+The built-in default profile is new every run; saved profiles stay the same person every run.
 
 ### Design goals
 
@@ -31,9 +44,7 @@ Each profile keeps its own settings, cookies, logins and internet connection, an
 |---|---|
 | Fully scriptable | Python controls every page, frame, click and keystroke |
 | Bot detection countered | Pages find no automation traces: no webdriver flag, no control port, no injected code |
-| Identity secured | Proxy, TLS handshake, graphics card and device values all describe the same person |
-| Assembled versions | One download is Firefox 158, 159 or 160 to websites, down to the TLS handshake |
-| Profile-based identities | Each new profile gets a random real device and version, then keeps them; the built-in default profile is new every run |
+| Consistent identity | Every layer agrees: a Firefox 158 profile has 158's TLS, a US proxy has a US clock |
 
 ### Test results
 

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "innocent-fox"
 version = "0.2.0"
-description = "Drive Innocent Fox, an assembled browser (Firefox 158, 159 or 160 to websites, with per-profile fingerprints), from Python over a private pipe."
+description = "Scriptable anti-detect browser built on Firefox: each profile is one identity (device, Firefox version, proxy, location), driven from Python over a private pipe."
 readme = "docs/scripting.md"
 requires-python = ">=3.10"
 dependencies = []          # standard library only
