@@ -109,9 +109,9 @@ Browser version: one build, shown to websites as Firefox 158, 159 or 160; each s
 ```python
 from ifox import Browser, profile
 
-profile.get("shop1", proxy="https://user:pass@host:port")   # first run creates it, later runs load it
+p = profile.get("shop1", proxy="https://user:pass@host:port")   # first run creates it, later runs load it
 
-with Browser("shop1") as b:                      # same device, version and cookies every run
+with Browser(p) as b:                            # same device, version and cookies every run
     tab = b.open("https://example.com/login")
     tab.type("#email", "a@example.com")          # human typing rhythm
     tab.press("Enter")
