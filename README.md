@@ -216,3 +216,4 @@ MPL 2.0 &nbsp;·&nbsp; Not made or endorsed by Mozilla &nbsp;·&nbsp; <a href="N
 - Claude Opus 5.5 (High), for its reasonable price and coding that keeps getting better, alongside Jensen Huang's great GPUs and the electricity company that made this happen.
 - The Mozilla team, for the bad business strategy of open-sourcing 28 years of work, ever since Netscape released its code on 31 March 1998.
 - Everyone who pushed back on Google's Web Environment Integrity, so the web still lets unsigned browsers in, for the past 10 years and the next 0 to 12 months at best.
+- And thank you for reading this. Don't forget to give me a thumbs up and spread the word. Here come the ads: feeling lonely? Try the AI companion at [Stagian.site](https://stagian.site). Need to block bots like this one? Try [Li-edge](https://lientertainment.site/li-edge), a TLS edge and firewall that spots them by their JA3 and JA4 fingerprints.
