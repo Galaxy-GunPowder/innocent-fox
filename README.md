@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/license-MPL_2.0-1d4e74" alt="MPL 2.0 license">
 </p>
 
-<p><a href="#introduction">Introduction</a> &nbsp;·&nbsp; <a href="#design-goals">Design goals</a> &nbsp;·&nbsp; <a href="#test-results">Test results</a> &nbsp;·&nbsp; <a href="#versions">Versions</a> &nbsp;·&nbsp; <a href="#how-to-use">How to use</a> &nbsp;·&nbsp; <a href="#license">License</a> &nbsp;·&nbsp; <a href="#special-thanks">Special thanks</a></p>
+<p><a href="#introduction">Introduction</a> &nbsp;·&nbsp; <a href="#test-results">Test results</a> &nbsp;·&nbsp; <a href="#versions">Versions</a> &nbsp;·&nbsp; <a href="#how-to-use">How to use</a> &nbsp;·&nbsp; <a href="#license">License</a> &nbsp;·&nbsp; <a href="#special-thanks">Special thanks</a></p>
 
 </div>
 
@@ -22,22 +22,12 @@
 
 # Introduction
 
-Innocent Fox is an anti-detect, identity-safe, fully scriptable browser.
-It is Firefox 160 with its source code changed directly: 27 major changes for identity safety, in 13 patches.
+Innocent Fox is an anti-detect, identity-safe, fully scriptable browser, built by changing Firefox 160's source code directly.
 Each profile can be Firefox 158, 159 or 160, identical to the official release in 7 fingerprint layers, from the TLS handshake to WebGL.
-See the [major changes](docs/major-changes.md) and the [full list of changes](docs/build-list.md).
 
+**Design goals:** fully scriptable from Python, no automation traces, and every layer of an identity agrees.<br>
+**Changes:** 27 major changes for identity safety, in 13 patches. [Summary](docs/major-changes.md) · [Full list](docs/build-list.md)<br>
 **Test results:** 6/6 public bot checkers passed, and Firefox 158, 159 and 160 each show 0 differences from official. [All results](#test-results)
-
-<br>
-
-# Design goals
-
-| Goal | What it means |
-|---|---|
-| Fully scriptable | Python controls every page, frame, click and keystroke |
-| Bot detection countered | Pages find no automation traces: no webdriver flag, no control port, no injected code |
-| Consistent identity | Every layer agrees: a Firefox 158 profile has 158's TLS, a US proxy has a US clock |
 
 <br>
 
