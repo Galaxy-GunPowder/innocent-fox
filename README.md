@@ -58,7 +58,7 @@ Public bot and fingerprint checkers, run on 21 November 2026 with the built-in d
 Windows 10 or 11 (64-bit) and Python 3.10 or newer:
 
 ```
-pip install https://github.com/Galaxy-GunPowder/innocent-fox/releases/download/v0.2.1/innocent_fox-0.2.1-py3-none-any.whl
+pip install https://github.com/Galaxy-GunPowder/innocent-fox/releases/download/v0.2.2/innocent_fox-0.2.2-py3-none-any.whl
 ```
 
 The first `Browser()` downloads the browser (130 MB) and checks it; after that it starts in about 2 seconds.
@@ -73,11 +73,13 @@ python scripts/build.py package         # make the release zip
 
 ### Manage profiles
 
+#### Create a new profile
+
 ```python
 from ifox import profile
 
 p = profile.create(
-    "shop1",
+    "myprofile",
     overwrite=False,             # True replaces a profile of the same name
     proxy="https://user:pass@host:port",   # None = this computer's own connection
     timezone="auto",             # the proxy exit's clock, every start; or "America/Chicago"
@@ -89,27 +91,50 @@ p = profile.create(
     dpr=None,                    # None = the device's; e.g. 1.25
     gpu=None,                    # None = the device's; e.g. ("Google Inc. (Intel)", "ANGLE (Intel, ...)")
     touch=0,                     # touch points; 0 = no touch screen
-    gpu_mode="fake",             # "fake" = the device's GPU; "real" = this computer's
+    gpu_mode="real",             # "real" = this computer's GPU; "fake" = claim the device's, with WebGL noise
     seed=None,                   # canvas noise key; None = random once, then kept
     prefs={},                    # extra Firefox prefs, {"name": value}
 )
 print(p)                         # every setting, what pages see, and session history
-
-p = profile.load("shop1")        # a saved one
-p.update(langs=["en-US", "en"])  # change settings; cookies stay
-p.wipe_history()                 # cookies, logins, history gone; settings stay
-profile.delete("shop1")          # the whole folder
-print(profile.names())           # every profile; "default" is built in
 ```
 
 Browser version: one build, shown to websites as Firefox 158, 159 or 160; each shows 0 differences from official in the [identity lab](tests/identity).
+
+#### Load, change, delete
+
+```python
+p = profile.load("myprofile")    # a saved one
+p.update(langs=["en-US", "en"])  # change settings; cookies stay
+p.wipe_history()                 # cookies, logins, history gone; settings stay
+profile.delete("myprofile")      # the whole folder
+print(profile.names())           # every profile; "default" is built in
+```
+
+#### Default profile
+
+Built in and always there, no `create` needed. Every use is a new random identity: device, Firefox version and canvas seed.
+It uses this computer's GPU, and nothing is kept after it closes.
+
+```python
+from ifox import Browser, profile
+
+with Browser() as b: ...                                        # the default profile, this computer's connection
+with Browser(proxy="https://user:pass@host:port") as b: ...     # clock and languages follow the proxy
+with Browser(version="158", device="i5-1135g7-laptop") as b: ...   # fix any setting for this run
+print(profile.default())                                        # what one use of it looks like
+```
 
 ### Browser automation
 
 ```python
 from ifox import Browser, profile
 
-p = profile.get("shop1", proxy="https://user:pass@host:port")   # first run creates it, later runs load it
+# Script the browser with the default profile
+with Browser(proxy="https://user:pass@host:port") as b:   # the built-in default: new identity, nothing kept
+    b.open("https://example.com/").click("text=Sign in")  # human mouse path, real click
+
+# Or with a saved profile
+p = profile.get("myprofile", proxy="https://user:pass@host:port")   # first run creates it, later runs load it
 
 with Browser(p) as b:                            # same device, version and cookies every run
     tab = b.open("https://example.com/login")
@@ -121,9 +146,6 @@ with Browser(p) as b:                            # same device, version and cook
     print(tab.js("return document.title"))       # JavaScript the page can't see
     tab.shot("page.png")
     print(tab.check())                           # what the page sees, next to the profile
-
-with Browser(proxy="https://user:pass@host:port") as b:   # the built-in default: new identity, nothing kept
-    b.open("https://example.com/").click("text=Sign in")  # human mouse path, real click
 ```
 
 Every setting and call: [docs/scripting.md](docs/scripting.md).

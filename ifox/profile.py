@@ -1,7 +1,7 @@
 """Saved browser profiles: make one, read it, change it, wipe its history.
 
     from ifox import profile
-    p = profile.create("shop1", proxy="https://user:pass@us.decodo.com:10001")
+    p = profile.create("myprofile", proxy="https://user:pass@us.decodo.com:10001")
     p.update(langs=["pt-BR", "pt", "en"])
     p.wipe_history()     # cookies, logins, history, cache gone; settings and device kept
 
@@ -37,7 +37,7 @@ SESSIONS = "ifox-sessions.json"     # history: wipe_history removes it
 DEFAULTS = {
     "proxy": None, "timezone": "auto", "langs": "auto",
     "device": None, "cores": None, "screen": None, "dpr": None, "gpu": None, "touch": None,
-    "gpu_mode": "fake", "seed": None, "version": None, "prefs": {},
+    "gpu_mode": "real", "seed": None, "version": None, "prefs": {},
 }
 HELP = {
     "proxy": "proxy URL; None = this computer's own connection",
@@ -49,7 +49,8 @@ HELP = {
     "dpr": "display scale: 1.0, 1.25, 1.5 (default: the device's)",
     "gpu": "(vendor, renderer) that WebGL reports (default: the device's)",
     "touch": "touch points; 0 = no touch screen",
-    "gpu_mode": '"fake" = claim the device\'s GPU, with WebGL noise; "real" = this computer\'s GPU',
+    "gpu_mode": '"real" = this computer\'s GPU, which WebGL pixels always come from; '
+                '"fake" = claim the device\'s GPU, with WebGL noise',
     "seed": "canvas noise key; None = random once, then kept",
     "version": "Firefox version pages see, one of profile.VERSIONS (\"160\", \"159\", \"158\"); "
                "None = picked at random when the profile is made, then kept",
@@ -69,7 +70,7 @@ def _pick_version(s):
 # Built in, always there: a new random device, screen, scale and canvas seed every use,
 # this computer's real GPU, nothing kept after the browser closes.
 DEFAULT = "default"
-_DEFAULT_SETTINGS = {"gpu_mode": "real"}
+_DEFAULT_SETTINGS = {}
 _DEVICE_KEYS = ("device", "cores", "screen", "dpr", "gpu", "touch", "gpu_mode", "seed")
 
 

@@ -40,7 +40,7 @@ p = profile.create(
     dpr=None,                    # e.g. 1.25
     gpu=None,                    # e.g. ("Google Inc. (Intel)", "ANGLE (Intel, ...)")
     touch=0,                     # touch points; 0 = no touch screen
-    gpu_mode="fake",             # "fake" = the device's GPU; "real" = this computer's
+    gpu_mode="real",             # "real" = this computer's GPU; "fake" = claim the device's, with WebGL noise
     seed=None,                   # canvas noise key; None = random once, then kept
     prefs={},                    # extra Firefox prefs, {"name": value}
 )

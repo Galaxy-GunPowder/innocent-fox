@@ -30,13 +30,13 @@ Full tour of every setting and call: [examples/profiles.py](../examples/profiles
 ```python
 from ifox import Browser, profile
 
-p = profile.create("shop1", proxy=PROXY, device="i5-1135g7-laptop")   # saved
+p = profile.create("myprofile", proxy=PROXY, device="i5-1135g7-laptop")   # saved
 p.update(langs=["pt-BR", "pt", "en"])        # change saved settings; cookies stay
 p.wipe_history()                             # cookies, logins, history, cache gone; settings stay
-profile.delete("shop1")                      # the whole folder
+profile.delete("myprofile")                      # the whole folder
 
-with Browser("shop1") as b: ...              # a saved profile
-with Browser("shop1", timezone="Asia/Tokyo") as b: ...   # other settings for this run only
+with Browser("myprofile") as b: ...              # a saved profile
+with Browser("myprofile", timezone="Asia/Tokyo") as b: ...   # other settings for this run only
 with Browser(proxy=PROXY) as b: ...          # the built-in default: random every run, nothing saved
 with Browser(proxy=PROXY, device="i7-12700-gtx1660") as b: ...   # the default with one setting fixed
 ```
@@ -51,7 +51,7 @@ The `default` profile is always there and needs no `create`. Every use gets a ne
 | `device` | random | one real machine from `profile.DEVICES`: cores, screen, scale, GPU together |
 | `cores`, `screen`, `dpr`, `gpu` | the device's | override one value; only copy another real machine |
 | `touch` | 0 | touch points |
-| `gpu_mode` | `"fake"` (`default`: `"real"`) | `"real"` = this computer's GPU |
+| `gpu_mode` | `"real"` | this computer's GPU, which WebGL pixels always come from; `"fake"` = claim the device's GPU, with WebGL noise |
 | `seed` | random, kept | canvas noise key |
 | `version` | random, kept | Firefox version websites see: `"160"`, `"159"` or `"158"` (`profile.VERSIONS`) |
 | `prefs` | `{}` | extra Firefox prefs |
@@ -94,7 +94,7 @@ Selectors: CSS, `text=Sign in`, `text="exact"`, and `a >> b` to step into shadow
 Each `Browser` is its own process, profile, fingerprint and proxy:
 
 ```python
-a = Browser("shop1", proxy="https://user-NAME-country-us:pass@gate.decodo.com:10301")
+a = Browser("myprofile", proxy="https://user-NAME-country-us:pass@gate.decodo.com:10301")
 b = Browser("shop2", proxy="https://user-NAME-country-br:pass@gate.decodo.com:10302")   # Brazil: pt-BR, São Paulo clock
 ```
 
