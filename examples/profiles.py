@@ -33,6 +33,7 @@ p = profile.create(
     proxy=PROXY,                 # None = this computer's own connection
     timezone="auto",             # the proxy exit's clock, looked up every start; or "America/Chicago"
     langs="auto",                # the exit country's languages, fixed at first start; or ["en-US", "en"]
+    version=None,                # Firefox version websites see; None = 158, 159 or 160 at random, then kept
     device="i5-1135g7-laptop",   # one real machine from profile.DEVICES; None = random
     cores=None,                  # None = the device's own value; set only to copy another real machine
     screen=None,                 # e.g. (1920, 1080), device pixels

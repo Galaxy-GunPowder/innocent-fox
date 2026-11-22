@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/license-MPL_2.0-1d4e74" alt="MPL 2.0 license">
 </p>
 
-<p><a href="#introduction">Introduction</a> &nbsp;·&nbsp; <a href="#test-results">Test results</a> &nbsp;·&nbsp; <a href="#versions">Versions</a> &nbsp;·&nbsp; <a href="#how-to-use">How to use</a> &nbsp;·&nbsp; <a href="#license">License</a> &nbsp;·&nbsp; <a href="#special-thanks">Special thanks</a></p>
+<p><a href="#introduction">Introduction</a> &nbsp;·&nbsp; <a href="#test-results">Test results</a> &nbsp;·&nbsp; <a href="#how-to-use">How to use</a> &nbsp;·&nbsp; <a href="#license">License</a> &nbsp;·&nbsp; <a href="#special-thanks">Special thanks</a></p>
 
 </div>
 
@@ -51,35 +51,6 @@ Public bot and fingerprint checkers, run on 21 November 2026 with the built-in d
 
 <br>
 
-# Versions
-
-Innocent Fox is built once, from Firefox 160. Each profile then shows websites Firefox 158, 159 or 160.
-
-| Term | Meaning |
-|---|---|
-| Assembled browser | One build that is several Firefox versions to websites |
-| Base build | The engine actually built: Firefox 160.0.1 |
-| Shown version | The version a website sees: 158, 159 or 160 |
-| Version switch | Settings that turn off what is newer than the shown version (`ifox.compat.*`) |
-| Verified | 0 differences from the official release in the identity lab |
-
-A new profile picks one of the 3 at random and keeps it. Set one with `version="158"`.
-
-### Lab results
-
-Our build against official Firefox from mozilla.org, 22 November 2026, 2 runs each, on local test servers only.
-The lab compares TLS (JA3, JA4), HTTP/2, header order, web APIs, CSS, media codecs and WebGL.
-
-| Shown version | Differences from official | |
-|---|:---:|:---:|
-| Firefox 160 | 0 | ✅ |
-| Firefox 159 | 0 | ✅ |
-| Firefox 158 | 0 | ✅ |
-
-The bot lab opens the same page by hand and by script: 0 automation traces, 13/13 input checks.
-
-<br>
-
 # How to use
 
 The download is the finished, ready-to-use browser: everything above is already built in.
@@ -96,25 +67,10 @@ pip install https://github.com/Galaxy-GunPowder/innocent-fox/releases/download/v
 The first time your script opens a browser, it downloads the browser itself (130 MB) and checks it. After that it starts in about 2 seconds.
 You can also get the browser zip from the [releases page](https://github.com/Galaxy-GunPowder/innocent-fox/releases) and install it with `ifox-install --zip <file>`.
 
-### Your first script
+### Profiles
 
-```python
-from ifox import Browser, profile
-
-with Browser(proxy="https://user:pass@host:port") as b:     # built-in default: random every run
-    tab = b.open("https://example.com/login")
-    tab.type("#email", "a@example.com")                     # human typing rhythm
-    tab.click("text=Sign in")                                # human mouse path, real click
-    print(tab.check())                                       # what the page sees, next to the profile
-
-p = profile.create("shop1", proxy="https://user:pass@host:port")   # saved: same computer and version every run
-print(p)                                                           # every setting and session
-profile.create("shop2", version="158")                             # always Firefox 158 to websites
-with Browser("shop1") as b:
-    b.open("https://example.com/")
-```
-
-### What a profile holds
+A profile is one online identity: device, Firefox version, proxy, location and cookies, all kept together.
+Saved profiles stay the same person every run; the built-in default is new every run and keeps nothing.
 
 | Layer | What websites see | Set by |
 |---|---|---|
@@ -125,7 +81,88 @@ with Browser("shop1") as b:
 | Storage | Cookies, logins and history | kept per profile |
 | Behaviour | Human mouse paths and typing, no automation traces | built in |
 
-The built-in default profile is new every run; saved profiles stay the same person every run.
+### Browser version
+
+Innocent Fox is built once, from Firefox 160. Each profile then shows websites Firefox 158, 159 or 160.
+
+| Term | Meaning |
+|---|---|
+| Assembled browser | One build that is several Firefox versions to websites |
+| Base build | The engine actually built: Firefox 160.0.1 |
+| Shown version | The version a website sees: 158, 159 or 160 |
+| Version switch | Settings that turn off what is newer than the shown version (`ifox.compat.*`) |
+| Verified | 0 differences from the official release in the identity lab |
+
+```python
+from ifox import Browser, profile
+
+p = profile.create("shop1")                  # picks 158, 159 or 160 at random, then keeps it
+print(p.settings["version"])                 # "159"
+profile.create("shop2", version="158")       # always Firefox 158 to websites
+p.update(version="160")                      # change it later; cookies stay
+
+with Browser("shop2") as b:                  # websites see Firefox 158
+    b.open("https://example.com/")
+with Browser(version="159") as b:            # the built-in default, as 159 for this run
+    b.open("https://example.com/")
+```
+
+Lab results: our build against official Firefox from mozilla.org, 22 November 2026, 2 runs each, on local test servers only.
+The lab compares TLS (JA3, JA4), HTTP/2, header order, web APIs, CSS, media codecs and WebGL.
+
+| Shown version | Differences from official | |
+|---|:---:|:---:|
+| Firefox 160 | 0 | ✅ |
+| Firefox 159 | 0 | ✅ |
+| Firefox 158 | 0 | ✅ |
+
+The bot lab opens the same page by hand and by script: 0 automation traces, 13/13 input checks.
+
+### Profile settings
+
+Every setting written out, with its default:
+
+```python
+from ifox import profile
+
+p = profile.create(
+    "shop1",
+    overwrite=False,             # True replaces a profile of the same name
+    proxy="https://user:pass@host:port",   # None = this computer's own connection
+    timezone="auto",             # the proxy exit's clock, every start; or "America/Chicago"
+    langs="auto",                # the exit country's languages, fixed at first start; or ["en-US", "en"]
+    version=None,                # None = 158, 159 or 160 at random, then kept; or "158"
+    device=None,                 # None = a random real machine, then kept; or "i5-1135g7-laptop"
+    cores=None,                  # None = the device's; set only to copy another real machine
+    screen=None,                 # None = the device's; e.g. (1920, 1080), device pixels
+    dpr=None,                    # None = the device's; e.g. 1.25
+    gpu=None,                    # None = the device's; e.g. ("Google Inc. (Intel)", "ANGLE (Intel, ...)")
+    touch=0,                     # touch points; 0 = no touch screen
+    gpu_mode="fake",             # "fake" = the device's GPU; "real" = this computer's
+    seed=None,                   # canvas noise key; None = random once, then kept
+    prefs={},                    # extra Firefox prefs, {"name": value}
+)
+print(p)                         # every setting, what pages see, and session history
+
+p = profile.load("shop1")        # a saved one
+p.update(langs=["en-US", "en"])  # change settings; cookies stay
+p.wipe_history()                 # cookies, logins, history gone; settings stay
+profile.delete("shop1")          # the whole folder
+```
+
+Devices to pick from: `profile.DEVICES`. Versions: `profile.VERSIONS`.
+
+### Your first script
+
+```python
+from ifox import Browser
+
+with Browser("shop1") as b:                                  # a saved profile; Browser() = the built-in default
+    tab = b.open("https://example.com/login")
+    tab.type("#email", "a@example.com")                     # human typing rhythm
+    tab.click("text=Sign in")                                # human mouse path, real click
+    print(tab.check())                                       # what the page sees, next to the profile
+```
 
 ### Common calls
 
