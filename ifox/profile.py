@@ -11,6 +11,7 @@ The proxy login is kept in that file in plain text; the browser itself never rea
 import copy
 import json
 import os
+import random
 import re
 import shutil
 import sqlite3
@@ -22,6 +23,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from . import fingerprint as fp
+from . import versions
 from .install import HOME
 from .network import Proxy, parse
 
@@ -35,7 +37,7 @@ SESSIONS = "ifox-sessions.json"     # history: wipe_history removes it
 DEFAULTS = {
     "proxy": None, "timezone": "auto", "langs": "auto",
     "device": None, "cores": None, "screen": None, "dpr": None, "gpu": None, "touch": None,
-    "gpu_mode": "fake", "seed": None, "prefs": {},
+    "gpu_mode": "fake", "seed": None, "version": None, "prefs": {},
 }
 HELP = {
     "proxy": "proxy URL; None = this computer's own connection",
@@ -49,9 +51,20 @@ HELP = {
     "touch": "touch points; 0 = no touch screen",
     "gpu_mode": '"fake" = claim the device\'s GPU, with WebGL noise; "real" = this computer\'s GPU',
     "seed": "canvas noise key; None = random once, then kept",
+    "version": "Firefox version pages see, one of profile.VERSIONS (\"160\", \"159\", \"158\"); "
+               "None = picked at random when the profile is made, then kept",
     "prefs": "extra Firefox prefs, {name: value}",
 }
 DEVICES = [d["name"] for d in fp.DEVICES]
+VERSIONS = versions.available()       # the build's own and the lab-verified ones, newest first
+
+
+def _pick_version(s):
+    """A version for a new profile that names none: one of VERSIONS at random, kept from then on.
+    Profiles saved before versions existed keep None, the build's own, so pages never see one change."""
+    if s.get("version") is None:
+        s["version"] = random.SystemRandom().choice(VERSIONS)
+    return s
 
 # Built in, always there: a new random device, screen, scale and canvas seed every use,
 # this computer's real GPU, nothing kept after the browser closes.
@@ -71,6 +84,10 @@ def _check(settings):
     out = dict(settings)
     if out.get("device") is not None and out["device"] not in DEVICES:
         raise ValueError(f"device must be one of {DEVICES}")
+    if out.get("version") is not None:
+        out["version"] = versions.major(out["version"])
+        if out["version"] not in VERSIONS:
+            raise ValueError(f"version must be one of {VERSIONS}")
     if out.get("gpu_mode", "fake") not in ("fake", "real"):
         raise ValueError('gpu_mode must be "fake" or "real"')
     langs = out.get("langs", "auto")
@@ -140,7 +157,7 @@ class Profile:
         return {
             "name": self.name,
             "folder": str(self.folder),
-            "saved": ("no: built in, new random device and seed every use, nothing kept"
+            "saved": ("no: built in, new random device, seed and version every use, nothing kept"
                       if self.is_default else self._saves and (self.folder / FILE).exists()),
             "proxy": f"{x.scheme}://{x.host}:{x.port}" + ((" (login saved)" if self._saves else " (with login)") if x.user else "") if x else None,
             "timezone": "auto (the proxy exit's, every start)" if s["timezone"] == "auto" else s["timezone"],
@@ -154,6 +171,8 @@ class Profile:
             "touch": f.extra.get("touch", 0),
             "gpu_mode": f.gpu_mode,
             "seed": f.seed,
+            "version": f"Firefox {s['version'] or versions.table()['base']}"
+                       + (" (picked at random)" if self.is_default else ""),
             "user_agent": f.user_agent,
             "prefs": s["prefs"],
             "open_now": open_now,
@@ -327,7 +346,7 @@ def create(name, *, overwrite=False, **settings):
         if not overwrite:
             raise ProfileError(f"profile {name} exists; profile.load({name!r}), or overwrite=True")
         load(name).delete()
-    s = {**copy.deepcopy(DEFAULTS), **_check(settings)}
+    s = _pick_version({**copy.deepcopy(DEFAULTS), **_check(settings)})
     p = Profile(name, folder, s, _build(s))
     p.save()
     return p
@@ -366,7 +385,7 @@ def default(**settings):
     a random canvas seed, this computer's real GPU, the clock and languages of the
     proxy exit. Nothing is kept; its folder is deleted when its browser closes.
     Settings given here (proxy, timezone, device, ...) apply to this one use."""
-    s = {**copy.deepcopy(DEFAULTS), **_DEFAULT_SETTINGS, **_check(settings)}
+    s = _pick_version({**copy.deepcopy(DEFAULTS), **_DEFAULT_SETTINGS, **_check(settings)})
     folder = ROOT / "_tmp" / os.urandom(6).hex()
     return Profile(DEFAULT, folder, s, _build(s), temp=True)
 

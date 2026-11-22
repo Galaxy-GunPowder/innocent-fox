@@ -1,0 +1,117 @@
+diff --git a/dom/canvas/ClientWebGLContext.cpp b/dom/canvas/ClientWebGLContext.cpp
+--- a/dom/canvas/ClientWebGLContext.cpp
++++ b/dom/canvas/ClientWebGLContext.cpp
+@@ -24,6 +24,7 @@
+ #include "mozilla/RandomNum.h"
+ #include "mozilla/ResultVariant.h"
+ #include "mozilla/ScopeExit.h"
++#include "mozilla/StaticPrefs_ifox.h"
+ #include "mozilla/StaticPrefs_webgl.h"
+ #include "mozilla/dom/BufferSourceBinding.h"
+ #include "mozilla/dom/Document.h"
+@@ -2166,6 +2167,63 @@
+   return ret;
+ }
+ 
++// Innocent Fox: the claimed GPU's value for aPname from ifox.webgl.parameters
++// ("pname:value;pname:value,value;..."). False = use the real value.
++static bool IfoxWebGLParameter(const GLenum aPname,
++                               AutoTArray<double, 2>& aValues) {
++  nsAutoCString list;
++  {
++    auto lock = StaticPrefs::ifox_webgl_parameters();
++    list = *lock;
++  }
++  for (const auto& entry : list.Split(';')) {
++    const int32_t colon = entry.FindChar(':');
++    if (colon <= 0) {
++      continue;
++    }
++    nsAutoCString key(Substring(entry, 0, colon));
++    key.Trim(" ");
++    nsresult rv = NS_ERROR_FAILURE;
++    const uint32_t pname =
++        StringBeginsWith(key, "0x"_ns) || StringBeginsWith(key, "0X"_ns)
++            ? nsAutoCString(Substring(key, 2)).ToInteger(&rv, 16)
++            : key.ToInteger(&rv);
++    if (NS_FAILED(rv) || pname != aPname) {
++      continue;
++    }
++    aValues.Clear();
++    for (const auto& part : Substring(entry, colon + 1).Split(',')) {
++      nsAutoCString number(part);
++      number.Trim(" ");
++      const double value = number.ToDouble(&rv);
++      if (NS_FAILED(rv)) {
++        return false;
++      }
++      aValues.AppendElement(value);
++    }
++    return aValues.Length() == 1 || aValues.Length() == 2;
++  }
++  return false;
++}
++
++// Innocent Fox: true if ifox.webgl.hiddenExtensions lists aName.
++static bool IfoxWebGLExtensionHidden(const char* const aName) {
++  nsAutoCString list;
++  {
++    auto lock = StaticPrefs::ifox_webgl_hiddenExtensions();
++    list = *lock;
++  }
++  for (const auto& part : list.Split(',')) {
++    nsAutoCString name(part);
++    name.Trim(" ");
++    if (!name.IsEmpty() &&
++        name.Equals(aName, nsCaseInsensitiveCStringComparator)) {
++      return true;
++    }
++  }
++  return false;
++}
++
+ void ClientWebGLContext::GetParameter(JSContext* cx, GLenum pname,
+                                       JS::MutableHandle<JS::Value> retval,
+                                       ErrorResult& rv, const bool debug) {
+@@ -2177,6 +2235,28 @@
+   }
+   const auto& limits = Limits();
+   const auto& state = State();
++
++  // Innocent Fox: report the claimed GPU's limits. Only getParameter changes;
++  // the real GPU still decides what actually works.
++  if (!debug) {
++    AutoTArray<double, 2> ifoxValues;
++    if (IfoxWebGLParameter(pname, ifoxValues)) {
++      if (ifoxValues.Length() == 1) {
++        retval.setNumber(ifoxValues[0]);
++        return;
++      }
++      if (pname == LOCAL_GL_MAX_VIEWPORT_DIMS) {
++        const auto dims = std::array<int32_t, 2>{int32_t(ifoxValues[0]),
++                                                 int32_t(ifoxValues[1])};
++        retval.set(Create<dom::Int32Array>(cx, this, dims, rv));
++        return;
++      }
++      const auto range =
++          std::array<float, 2>{float(ifoxValues[0]), float(ifoxValues[1])};
++      retval.set(Create<dom::Float32Array>(cx, this, range, rv));
++      return;
++    }
++  }
+ 
+   // -
+ 
+@@ -6408,6 +6488,12 @@
+   if (IsExtensionForbiddenForCaller(ext, callerType)) {
+     return false;
+   }
++  // Innocent Fox: the claimed GPU lacks it. This one check covers both
++  // getSupportedExtensions() and getExtension().
++  if (callerType != dom::CallerType::System &&
++      IfoxWebGLExtensionHidden(GetExtensionName(ext))) {
++    return false;
++  }
+ 
+   const auto& limits = Limits();
+   return limits.supportedExtensions[ext];

@@ -1,0 +1,511 @@
+diff --git a/dom/bindings/BindingUtils.cpp b/dom/bindings/BindingUtils.cpp
+--- a/dom/bindings/BindingUtils.cpp
++++ b/dom/bindings/BindingUtils.cpp
+@@ -36,6 +36,7 @@
+ #include "mozilla/ScopeExit.h"
+ #include "mozilla/Sprintf.h"
+ #include "mozilla/StaticPrefs_dom.h"
++#include "mozilla/StaticPrefs_ifox.h"
+ #include "mozilla/UniquePtr.h"
+ #include "mozilla/UseCounter.h"
+ #include "mozilla/dom/CustomElementRegistry.h"
+@@ -734,10 +735,61 @@
+ 
+ namespace dom {
+ 
++// Innocent Fox: the interface or namespace whose objects this thread is
++// making for a web page, so DefineConstants can apply ifox.compat.edits.
++// Constants are not configurable and can't be deleted afterwards.
++static thread_local const char* sIfoxDefining = nullptr;
++
++class MOZ_RAII IfoxAutoDefining {
++ public:
++  explicit IfoxAutoDefining(const char* aName) : mPrevious(sIfoxDefining) {
++    sIfoxDefining = aName;
++  }
++  ~IfoxAutoDefining() { sIfoxDefining = mPrevious; }
++
++ private:
++  const char* mPrevious;
++};
++
++// "Iface.CONST=hide" or "Iface.static.CONST=hide": a constant a version never
++// had is missing from the prototype and the interface object alike.
++static bool IfoxHidesConstant(const char* aName) {
++  if (!sIfoxDefining) {
++    return false;
++  }
++  nsAutoCString edits;
++  {
++    auto lock = StaticPrefs::ifox_compat_edits();
++    edits = *lock;
++  }
++  if (edits.IsEmpty()) {
++    return false;
++  }
++  nsAutoCString onProto(sIfoxDefining);
++  onProto.AppendLiteral(".");
++  onProto.Append(aName);
++  onProto.AppendLiteral("=hide");
++  nsAutoCString onInterface(sIfoxDefining);
++  onInterface.AppendLiteral(".static.");
++  onInterface.Append(aName);
++  onInterface.AppendLiteral("=hide");
++  for (const auto& part : edits.Split(';')) {
++    nsAutoCString item(part);
++    item.Trim(" ");
++    if (item.Equals(onProto) || item.Equals(onInterface)) {
++      return true;
++    }
++  }
++  return false;
++}
++
+ bool DefineConstants(JSContext* cx, JS::Handle<JSObject*> obj,
+                      const ConstantSpec* cs) {
+   JS::Rooted<JS::Value> value(cx);
+   for (; cs->name; ++cs) {
++    if (IfoxHidesConstant(cs->name)) {
++      continue;
++    }
+     value = cs->value;
+     bool ok = JS_DefineProperty(
+         cx, obj, cs->name, value,
+@@ -1046,6 +1098,101 @@
+   }
+ 
+   return constructor;
++}
++
++// Innocent Fox: an accessor made read-only, with the same getter and no
++// setter. Redefining keeps the property where it was in the object.
++static void IfoxDropSetter(JSContext* aCx, JS::Handle<JSObject*> aObj,
++                           const char* aName) {
++  JS::Rooted<mozilla::Maybe<JS::PropertyDescriptor>> desc(aCx);
++  if (!JS_GetOwnPropertyDescriptor(aCx, aObj, aName, &desc)) {
++    JS_ClearPendingException(aCx);
++    return;
++  }
++  if (desc.isNothing() || !desc->isAccessorDescriptor() || !desc->getter() ||
++      !desc->setter()) {
++    return;
++  }
++  // A complete descriptor with set: undefined. JS_DefineProperty with a null
++  // setter would mean "leave the setter as it is".
++  const unsigned attrs = (desc->enumerable() ? JSPROP_ENUMERATE : 0) |
++                         (desc->configurable() ? 0 : JSPROP_PERMANENT);
++  JS::Rooted<JS::PropertyDescriptor> readOnly(
++      aCx, JS::PropertyDescriptor::Accessor(desc->getter(), nullptr, attrs));
++  JSString* str = JS_AtomizeString(aCx, aName);
++  if (!str) {
++    JS_ClearPendingException(aCx);
++    return;
++  }
++  JS::Rooted<jsid> id(aCx, JS::PropertyKey::NonIntAtom(str));
++  if (!JS_DefinePropertyById(aCx, aObj, id, readOnly)) {
++    JS_ClearPendingException(aCx);
++  }
++}
++
++// Innocent Fox: ifox.compat.edits, the version switch for interface members.
++// "Iface.member=hide" removes a member from the prototype (or from a
++// namespace object), as in a version that never had it; "Iface.static.member"
++// does the same on the interface object, for static members and constants.
++// "Iface.method=length:N" sets a method's length, for a method whose argument
++// list changed between versions. aStatic: aObj is the interface object.
++static void IfoxApplyCompatEdits(JSContext* aCx, JS::Handle<JSObject*> aObj,
++                                 const char* aName, bool aStatic) {
++  const nsDependentCString iface(aName);
++  // Firefox 158 made these read-only; the IDL keeps 157's setters.
++  if (!aStatic && iface.EqualsLiteral("RTCSessionDescription") &&
++      !StaticPrefs::ifox_compat_webrtc_writableSessionDescription()) {
++    IfoxDropSetter(aCx, aObj, "type");
++    IfoxDropSetter(aCx, aObj, "sdp");
++  }
++  nsAutoCString edits;
++  {
++    auto lock = StaticPrefs::ifox_compat_edits();
++    edits = *lock;
++  }
++  if (edits.IsEmpty()) {
++    return;
++  }
++  for (const auto& part : edits.Split(';')) {
++    nsAutoCString item(part);
++    item.Trim(" ");
++    const int32_t dot = item.FindChar('.');
++    const int32_t eq = item.FindChar('=');
++    if (dot <= 0 || eq <= dot + 1 || !Substring(item, 0, dot).Equals(iface)) {
++      continue;
++    }
++    nsAutoCString member(Substring(item, dot + 1, eq - dot - 1));
++    if (StringBeginsWith(member, "static."_ns) != aStatic) {
++      continue;
++    }
++    if (aStatic) {
++      member.Cut(0, 7);
++    }
++    const nsAutoCString action(Substring(item, eq + 1));
++    if (action.EqualsLiteral("hide")) {
++      JS::ObjectOpResult ignored;
++      if (!JS_DeleteProperty(aCx, aObj, member.get(), ignored)) {
++        JS_ClearPendingException(aCx);
++      }
++    } else if (StringBeginsWith(action, "length:"_ns)) {
++      nsresult rv;
++      const nsAutoCString number(Substring(action, 7));
++      const int32_t length = number.ToInteger(&rv);
++      JS::Rooted<JS::Value> fn(aCx);
++      if (NS_FAILED(rv) || length < 0 ||
++          !JS_GetProperty(aCx, aObj, member.get(), &fn) || !fn.isObject() ||
++          !JS::IsCallable(&fn.toObject())) {
++        JS_ClearPendingException(aCx);
++        continue;
++      }
++      // Same attributes as a built-in length: not writable, not enumerable,
++      // configurable.
++      JS::Rooted<JSObject*> fnObj(aCx, &fn.toObject());
++      if (!JS_DefineProperty(aCx, fnObj, "length", length, JSPROP_READONLY)) {
++        JS_ClearPendingException(aCx);
++      }
++    }
++  }
+ }
+ 
+ static JSObject* CreateInterfacePrototypeObject(
+@@ -1174,6 +1321,7 @@
+              "object");
+ 
+   bool isChrome = nsContentUtils::ThreadsafeIsSystemCaller(cx);
++  IfoxAutoDefining ifoxDefining(isChrome ? nullptr : name);
+ 
+   JS::Rooted<JSString*> nameStr(cx, JS_AtomizeString(cx, name));
+   if (!nameStr) {
+@@ -1188,6 +1336,9 @@
+         isGlobal);
+     if (!proto) {
+       return;
++    }
++    if (!isChrome) {
++      IfoxApplyCompatEdits(cx, proto, name, false);
+     }
+ 
+     *protoCache = proto;
+@@ -1211,6 +1362,10 @@
+       return;
+     }
+     *constructorCache = interface;
++    if (!isChrome) {
++      JS::Rooted<JSObject*> interfaceObj(cx, interface);
++      IfoxApplyCompatEdits(cx, interfaceObj, name, true);
++    }
+   }
+ }
+ 
+@@ -1229,6 +1384,8 @@
+   }
+   JS::Rooted<jsid> nameId(cx, JS::PropertyKey::NonIntAtom(nameStr));
+ 
++  IfoxAutoDefining ifoxDefining(
++      nsContentUtils::ThreadsafeIsSystemCaller(cx) ? nullptr : name);
+   JS::Rooted<JSObject*> namespaceObj(
+       cx, JS_NewObjectWithGivenProto(cx, namespaceClass.ToJSClass(),
+                                      namespaceProto));
+@@ -1240,6 +1397,9 @@
+           cx, namespaceObj, properties, chromeOnlyProperties,
+           nsContentUtils::ThreadsafeIsSystemCaller(cx))) {
+     return;
++  }
++  if (!nsContentUtils::ThreadsafeIsSystemCaller(cx)) {
++    IfoxApplyCompatEdits(cx, namespaceObj, name, false);
+   }
+ 
+   if (defineOnGlobal && !DefineConstructor(cx, global, nameId, namespaceObj)) {
+diff --git a/dom/media/PeerConnection.sys.mjs b/dom/media/PeerConnection.sys.mjs
+--- a/dom/media/PeerConnection.sys.mjs
++++ b/dom/media/PeerConnection.sys.mjs
+@@ -207,9 +207,31 @@
+   get type() {
+     return this._type;
+   }
++  // Innocent Fox: Firefox 157's setters, reached only with
++  // ifox.compat.webrtc.writableSessionDescription true.
++  set type(type) {
++    this.warn();
++    this._type = type;
++  }
+ 
+   get sdp() {
+     return this._sdp;
++  }
++  set sdp(sdp) {
++    this.warn();
++    this._sdp = sdp;
++  }
++
++  warn() {
++    if (!this._warned) {
++      // Warn once per RTCSessionDescription about deprecated writable usage.
++      this.logMsg(
++        "RTCSessionDescription's members are readonly! " +
++          "Writing to them is deprecated and will break soon!",
++        Ci.nsIScriptError.warningFlag
++      );
++      this._warned = true;
++    }
+   }
+ 
+   logMsg(msg, flag) {
+diff --git a/dom/media/mediacapabilities/MediaCapabilities.cpp b/dom/media/mediacapabilities/MediaCapabilities.cpp
+--- a/dom/media/mediacapabilities/MediaCapabilities.cpp
++++ b/dom/media/mediacapabilities/MediaCapabilities.cpp
+@@ -23,6 +23,7 @@
+ #include "mozilla/ClearOnShutdown.h"
+ #include "mozilla/EMEUtils.h"
+ #include "mozilla/SchedulerGroup.h"
++#include "mozilla/StaticPrefs_ifox.h"
+ #include "mozilla/StaticPrefs_media.h"
+ #include "mozilla/TaskQueue.h"
+ #include "mozilla/dom/DOMMozPromiseRequestHolder.h"
+@@ -1122,8 +1123,12 @@
+       aPromise->MaybeRejectWithTypeError("Invalid VideoConfiguration");
+       return;
+     }
+-    MaybeSynthesizeCodecConfig(videoTracks[0]->GetAsVideoInfo(),
+-                               *aVideoContainer);
++    // Innocent Fox: false = Firefox 159 and older, which made up no config
++    // (ifox.compat.media.synthesizeCodecConfig).
++    if (StaticPrefs::ifox_compat_media_synthesizeCodecConfig()) {
++      MaybeSynthesizeCodecConfig(videoTracks[0]->GetAsVideoInfo(),
++                                 *aVideoContainer);
++    }
+     tracks.AppendElements(std::move(videoTracks));
+   }
+   if (aConfiguration.mAudio.WasPassed()) {
+@@ -1423,9 +1428,15 @@
+                 TrackingId trackingId(TrackingId::Source::MediaCapabilities,
+                                       sTrackingIdCounter++,
+                                       TrackingId::TrackAcrossProcesses::Yes);
+-                const CreateDecoderParams::OptionSet options{
+-                    CreateDecoderParams::Option::Default,
+-                    CreateDecoderParams::Option::AssertCanInstantiate};
++                // Innocent Fox: false = Firefox 159's probe, without
++                // AssertCanInstantiate (ifox.compat.media.assertCanInstantiate).
++                const CreateDecoderParams::OptionSet options =
++                    StaticPrefs::ifox_compat_media_assertCanInstantiate()
++                        ? CreateDecoderParams::OptionSet{
++                              CreateDecoderParams::Option::Default,
++                              CreateDecoderParams::Option::AssertCanInstantiate}
++                        : CreateDecoderParams::OptionSet{
++                              CreateDecoderParams::Option::Default};
+                 CreateDecoderParams params{
+                     *config,
+                     compositor,
+diff --git a/dom/media/webrtc/jsep/JsepCodecDescription.h b/dom/media/webrtc/jsep/JsepCodecDescription.h
+--- a/dom/media/webrtc/jsep/JsepCodecDescription.h
++++ b/dom/media/webrtc/jsep/JsepCodecDescription.h
+@@ -11,6 +11,7 @@
+ 
+ #include "mozilla/Casting.h"
+ #include "mozilla/Preferences.h"
++#include "mozilla/StaticPrefs_ifox.h"
+ #include "mozilla/media/webrtc/AV1FmtpParser.h"
+ #include "mozilla/media/webrtc/H264FmtpParser.h"
+ #include "mozilla/net/DataChannelProtocol.h"
+@@ -606,9 +607,13 @@
+     auto codec = MakeUnique<JsepVideoCodecDescription>("99", "AV1", 90000);
+     codec->mEnabled = aPrefs.AV1Enabled();
+     codec->mStronglyPreferred = aPrefs.AV1Preferred();
+-    codec->mAv1Config.mProfile = Some(uint8_t(0));
+-    codec->mAv1Config.mLevelIdx = Some(uint8_t(9));  // Level 4.1
+-    codec->mAv1Config.mTier = Some(uint8_t(0));
++    // Innocent Fox: false = Firefox 157 and older, which declared none of
++    // these (ifox.compat.webrtc.av1Fmtp).
++    if (StaticPrefs::ifox_compat_webrtc_av1Fmtp()) {
++      codec->mAv1Config.mProfile = Some(uint8_t(0));
++      codec->mAv1Config.mLevelIdx = Some(uint8_t(9));  // Level 4.1
++      codec->mAv1Config.mTier = Some(uint8_t(0));
++    }
+     if (aPrefs.UseRtx()) {
+       codec->EnableRtx("100");
+     }
+diff --git a/dom/webidl/RTCSessionDescription.webidl b/dom/webidl/RTCSessionDescription.webidl
+--- a/dom/webidl/RTCSessionDescription.webidl
++++ b/dom/webidl/RTCSessionDescription.webidl
+@@ -29,7 +29,10 @@
+ interface RTCSessionDescription {
+   [Throws]
+   constructor(RTCSessionDescriptionInit descriptionInitDict);
+-  readonly attribute RTCSdpType type;
+-  readonly attribute DOMString sdp;
++  // Innocent Fox: writable as in Firefox 157 and older. Pages get Firefox
++  // 158's read-only accessors unless ifox.compat.webrtc.writableSessionDescription
++  // is true (BindingUtils.cpp drops the setters).
++  attribute RTCSdpType type;
++  attribute DOMString sdp;
+   [Default] object toJSON();
+ };
+diff --git a/dom/webidl/WebTransportDatagramDuplexStream.webidl b/dom/webidl/WebTransportDatagramDuplexStream.webidl
+--- a/dom/webidl/WebTransportDatagramDuplexStream.webidl
++++ b/dom/webidl/WebTransportDatagramDuplexStream.webidl
+@@ -17,4 +17,7 @@
+   [Throws] attribute unrestricted double? outgoingMaxAge;
+   attribute unsigned long incomingMaxBufferedDatagrams;
+   attribute unsigned long outgoingMaxBufferedDatagrams;
++  // Innocent Fox: Firefox 159's attributes, for its version switch.
++  [Throws, Pref="ifox.compat.webtransport.highWaterMark"] attribute unrestricted double incomingHighWaterMark;
++  [Throws, Pref="ifox.compat.webtransport.highWaterMark"] attribute unrestricted double outgoingHighWaterMark;
+ };
+diff --git a/dom/webtransport/api/WebTransportDatagramDuplexStream.cpp b/dom/webtransport/api/WebTransportDatagramDuplexStream.cpp
+--- a/dom/webtransport/api/WebTransportDatagramDuplexStream.cpp
++++ b/dom/webtransport/api/WebTransportDatagramDuplexStream.cpp
+@@ -123,6 +123,32 @@
+   mOutgoingAlgorithms->UpdateQueueParams(
+       mOutgoingMaxBufferedDatagrams,
+       mOutgoingMaxAge.IsNull() ? INFINITY : mOutgoingMaxAge.Value());
++}
++
++// Innocent Fox: Firefox 159's setters, unchanged (spec steps of that time),
++// including its error text.
++void WebTransportDatagramDuplexStream::SetIncomingHighWaterMark(
++    double aWaterMark, ErrorResult& aRv) {
++  if (std::isnan(aWaterMark) || aWaterMark < 0.) {
++    aRv.ThrowRangeError("Invalid OutgoingMaxAge");
++    return;
++  }
++  if (aWaterMark < 1.0) {
++    aWaterMark = 1.0;
++  }
++  mIncomingHighWaterMark = aWaterMark;
++}
++
++void WebTransportDatagramDuplexStream::SetOutgoingHighWaterMark(
++    double aWaterMark, ErrorResult& aRv) {
++  if (std::isnan(aWaterMark) || aWaterMark < 0.) {
++    aRv.ThrowRangeError("Invalid OutgoingHighWaterMark");
++    return;
++  }
++  if (aWaterMark < 1.0) {
++    aWaterMark = 1.0;
++  }
++  mOutgoingHighWaterMark = aWaterMark;
+ }
+ 
+ void WebTransportDatagramDuplexStream::SetIncomingMaxBufferedDatagrams(
+diff --git a/dom/webtransport/api/WebTransportDatagramDuplexStream.h b/dom/webtransport/api/WebTransportDatagramDuplexStream.h
+--- a/dom/webtransport/api/WebTransportDatagramDuplexStream.h
++++ b/dom/webtransport/api/WebTransportDatagramDuplexStream.h
+@@ -214,6 +214,15 @@
+     return mOutgoingMaxBufferedDatagrams;
+   }
+   void SetOutgoingMaxBufferedDatagrams(uint32_t aValue);
++  // Innocent Fox: Firefox 159's high water marks (ifox.compat.webtransport.highWaterMark).
++  double GetIncomingHighWaterMark(ErrorResult& aRv) const {
++    return mIncomingHighWaterMark;
++  }
++  void SetIncomingHighWaterMark(double aWaterMark, ErrorResult& aRv);
++  double GetOutgoingHighWaterMark(ErrorResult& aRv) const {
++    return mOutgoingHighWaterMark;
++  }
++  void SetOutgoingHighWaterMark(double aWaterMark, ErrorResult& aRv);
+ 
+   already_AddRefed<WebTransportDatagramsWritable> CreateWritable(
+       const WebTransportSendOptions& aOptions, ErrorResult& aRv);
+@@ -250,6 +259,8 @@
+   // These are implementation-defined
+   uint32_t mIncomingMaxBufferedDatagrams = 5;
+   uint32_t mOutgoingMaxBufferedDatagrams = 5;
++  double mIncomingHighWaterMark = 1.0;
++  double mOutgoingHighWaterMark = 5.0;
+   uint64_t mOutgoingMaxDataSize = 1024;  // implementation-defined integer
+ 
+   mozilla::Queue<UniquePtr<DatagramEntry>, 32> mIncomingDatagramsQueue;
+diff --git a/modules/libpref/init/StaticPrefList.yaml b/modules/libpref/init/StaticPrefList.yaml
+--- a/modules/libpref/init/StaticPrefList.yaml
++++ b/modules/libpref/init/StaticPrefList.yaml
+@@ -9264,6 +9264,61 @@
+   value: ""
+   mirror: always
+ 
++# Version switch: what a page sees of an older Firefox, on this build. Defaults
++# are stock 160. tests/identity/versions.py works out the values per version.
++#
++# Member edits applied to each interface prototype as a page's global is made
++# (windows and workers): "Iface.member=hide;Iface.method=length:1". Chrome code
++# is never affected.
++- name: ifox.compat.edits
++  type: DataMutexString
++  value: ""
++  mirror: always
++
++# Firefox 159 and older: WebTransport datagram incomingHighWaterMark and
++# outgoingHighWaterMark, with 159's own getters and setters. Hide the 160
++# replacements with ifox.compat.edits.
++- name: ifox.compat.webtransport.highWaterMark
++  type: RelaxedAtomicBool
++  value: false
++  mirror: always
++
++# Firefox 160 probes video decoders with AssertCanInstantiate. false = 159's
++# probe, without it.
++- name: ifox.compat.media.assertCanInstantiate
++  type: RelaxedAtomicBool
++  value: true
++  mirror: always
++
++# Firefox 160 makes up a default decoder config for VP8, VP9, AV1 and HEVC codec
++# strings that carry none, so mediaCapabilities finds the hardware decoder
++# (powerEfficient true). false = 159 and older, without it.
++- name: ifox.compat.media.synthesizeCodecConfig
++  type: RelaxedAtomicBool
++  value: true
++  mirror: always
++
++# Firefox 158 and newer offer AV1 to WebRTC with profile, level-idx and tier
++# (an sdpFmtpLine in getCapabilities and the offer). false = 157 and older.
++- name: ifox.compat.webrtc.av1Fmtp
++  type: RelaxedAtomicBool
++  value: true
++  mirror: always
++
++# RTCSessionDescription.type and .sdp are read-only from Firefox 158. true =
++# 157 and older: writable, with a deprecation warning on first write.
++- name: ifox.compat.webrtc.writableSessionDescription
++  type: RelaxedAtomicBool
++  value: false
++  mirror: always
++
++# Firefox 155 and older offered the FFDHE 2048 and 3072 groups in every TLS
++# ClientHello; 156 offers them only with DHE ciphers on. true = 155's list.
++- name: ifox.compat.tls.ffdheGroups
++  type: RelaxedAtomicBool
++  value: false
++  mirror: always
++
+ # IANA time zone for pages and every kind of worker, e.g. America/New_York.
+ # "" = the real one. Windows ignores the TZ variable for such names.
+ - name: ifox.timezone
+diff --git a/security/manager/ssl/nsNSSIOLayer.cpp b/security/manager/ssl/nsNSSIOLayer.cpp
+--- a/security/manager/ssl/nsNSSIOLayer.cpp
++++ b/security/manager/ssl/nsNSSIOLayer.cpp
+@@ -24,6 +24,7 @@
+ #include "mozilla/Preferences.h"
+ #include "mozilla/RandomNum.h"
+ #include "mozilla/ScopeExit.h"
++#include "mozilla/StaticPrefs_ifox.h"
+ #include "mozilla/StaticPrefs_security.h"
+ #include "mozilla/glean/SecurityManagerSslMetrics.h"
+ #include "mozilla/net/SSLTokensCache.h"
+@@ -1600,8 +1601,11 @@
+ 
+   // Only include named FFDHE shares if ciphersuites that can use FFDHE are
+   // enabled.
++  // Innocent Fox: Firefox 155 and older always offered them
++  // (ifox.compat.tls.ffdheGroups).
+   if (StaticPrefs::security_ssl3_dhe_rsa_aes_128_sha() ||
+-      StaticPrefs::security_ssl3_dhe_rsa_aes_256_sha()) {
++      StaticPrefs::security_ssl3_dhe_rsa_aes_256_sha() ||
++      StaticPrefs::ifox_compat_tls_ffdheGroups()) {
+     namedGroups.AppendElement(ssl_grp_ffdhe_2048);
+     namedGroups.AppendElement(ssl_grp_ffdhe_3072);
+   }

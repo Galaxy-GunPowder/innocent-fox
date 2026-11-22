@@ -4,17 +4,17 @@
 
 <h1>Innocent Fox</h1>
 
-<p>Fully scriptable, identity-secure browser based on Firefox 160.</p>
+<p>Fully scriptable, identity-secure assembled browser: one download that is Firefox 158, 159 or 160 to websites.</p>
 
 <p>
-  <img src="https://img.shields.io/badge/based_on-Firefox_160-2f7f99?logo=firefoxbrowser&logoColor=white" alt="Based on Firefox 160">
+  <img src="https://img.shields.io/badge/Firefox-158_%7C_159_%7C_160-2f7f99?logo=firefoxbrowser&logoColor=white" alt="Firefox 158, 159 and 160">
   <img src="https://img.shields.io/badge/Windows-10_%7C_11-2f7f99?logo=windows&logoColor=white" alt="Windows 10 and 11">
   <img src="https://img.shields.io/badge/Python-3.10+-2f7f99?logo=python&logoColor=white" alt="Python 3.10 or newer">
   <img src="https://img.shields.io/github/v/release/Galaxy-GunPowder/innocent-fox?color=1d4e74&label=release" alt="Latest release">
   <img src="https://img.shields.io/badge/license-MPL_2.0-1d4e74" alt="MPL 2.0 license">
 </p>
 
-<p><a href="#introduction">Introduction</a> &nbsp;·&nbsp; <a href="#major-changes">Major changes</a> &nbsp;·&nbsp; <a href="#how-to-use">How to use</a> &nbsp;·&nbsp; <a href="#license">License</a> &nbsp;·&nbsp; <a href="#special-thanks">Special thanks</a></p>
+<p><a href="#introduction">Introduction</a> &nbsp;·&nbsp; <a href="#versions">Versions</a> &nbsp;·&nbsp; <a href="#major-changes">Major changes</a> &nbsp;·&nbsp; <a href="#how-to-use">How to use</a> &nbsp;·&nbsp; <a href="#license">License</a> &nbsp;·&nbsp; <a href="#special-thanks">Special thanks</a></p>
 
 </div>
 
@@ -22,7 +22,7 @@
 
 # Introduction
 
-Innocent Fox is a version of Firefox 160 for running many separate online identities from Python.
+Innocent Fox is an assembled browser for running many separate online identities from Python: one Firefox 160 build that each profile shows websites as Firefox 158, 159 or 160.
 Each profile keeps its own settings, cookies, logins and internet connection, and to a website it looks like an ordinary person on an ordinary computer.
 
 ### Design goals
@@ -31,12 +31,13 @@ Each profile keeps its own settings, cookies, logins and internet connection, an
 |---|---|
 | Fully scriptable | Python controls every page, frame, click and keystroke |
 | Bot detection countered | Pages find no automation traces: no webdriver flag, no control port, no injected code |
-| Identity secured | Proxy, TLS handshake, graphics card and device values all describe the same person; TLS is Firefox 160's own, so it matches |
-| Profile-based identities | Each new profile gets a random real device, then keeps it; the built-in default profile is new every run |
+| Identity secured | Proxy, TLS handshake, graphics card and device values all describe the same person |
+| Assembled versions | One download is Firefox 158, 159 or 160 to websites, down to the TLS handshake |
+| Profile-based identities | Each new profile gets a random real device and version, then keeps them; the built-in default profile is new every run |
 
 ### Test results
 
-Public bot and fingerprint checkers, run on 21 November 2026 with the built-in default profile through a US residential proxy.
+Public bot and fingerprint checkers, run on 21 November 2026 with the built-in default profile (Firefox 160) through a US residential proxy.
 
 | Checker | What it checks | Passed | |
 |---|---|:---:|:---:|
@@ -51,6 +52,35 @@ Public bot and fingerprint checkers, run on 21 November 2026 with the built-in d
 
 <sub>¹ The one miss is "Chrome object", a Chrome-only check that every Firefox fails.<br>
 ² DNS servers show Singapore next to a US exit; the proxy provider's entry server does the lookups.</sub>
+
+<br>
+
+# Versions
+
+Innocent Fox is built once, from Firefox 160. Each profile then shows websites Firefox 158, 159 or 160.
+
+| Term | Meaning |
+|---|---|
+| Assembled browser | One build that is several Firefox versions to websites |
+| Base build | The engine actually built: Firefox 160.0.1 |
+| Shown version | The version a website sees: 158, 159 or 160 |
+| Version switch | Settings that turn off what is newer than the shown version (`ifox.compat.*`) |
+| Verified | 0 differences from the official release in the identity lab |
+
+A new profile picks one of the 3 at random and keeps it. Set one with `version="158"`.
+
+### Lab results
+
+Our build against official Firefox from mozilla.org, 22 November 2026, 2 runs each, on local test servers only.
+The lab compares TLS (JA3, JA4), HTTP/2, header order, web APIs, CSS, media codecs and WebGL.
+
+| Shown version | Differences from official | |
+|---|:---:|:---:|
+| Firefox 160 | 0 | ✅ |
+| Firefox 159 | 0 | ✅ |
+| Firefox 158 | 0 | ✅ |
+
+The bot lab opens the same page by hand and by script: 0 automation traces, 13/13 input checks.
 
 <br>
 
@@ -70,7 +100,7 @@ Install it, write a short Python script, and it runs. Building it yourself is on
 You need Windows 10 or 11 (64-bit) and Python 3.10 or newer. Install with one command:
 
 ```
-pip install https://github.com/Galaxy-GunPowder/innocent-fox/releases/download/v0.1.1/innocent_fox-0.1.1-py3-none-any.whl
+pip install https://github.com/Galaxy-GunPowder/innocent-fox/releases/download/v0.2.0/innocent_fox-0.2.0-py3-none-any.whl
 ```
 
 The first time your script opens a browser, it downloads the browser itself (130 MB) and checks it. After that it starts in about 2 seconds.
@@ -87,8 +117,9 @@ with Browser(proxy="https://user:pass@host:port") as b:     # built-in default: 
     tab.click("text=Sign in")                                # human mouse path, real click
     print(tab.check())                                       # what the page sees, next to the profile
 
-p = profile.create("shop1", proxy="https://user:pass@host:port")   # saved: same computer every run
+p = profile.create("shop1", proxy="https://user:pass@host:port")   # saved: same computer and version every run
 print(p)                                                           # every setting and session
+profile.create("shop2", version="158")                             # always Firefox 158 to websites
 with Browser("shop1") as b:
     b.open("https://example.com/")
 ```

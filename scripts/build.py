@@ -20,7 +20,7 @@ ac_add_options --enable-application=browser
 mk_add_options MOZ_OBJDIR={OBJ.as_posix()}
 mk_add_options MOZ_PARALLEL_BUILD={JOBS}
 
-# Match a real release build, so feature detection sees stock Firefox 160.
+# Match a real release build, so feature detection sees stock Firefox.
 ac_add_options --enable-release
 ac_add_options --enable-optimize
 ac_add_options --disable-debug

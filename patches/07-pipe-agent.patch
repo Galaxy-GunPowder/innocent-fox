@@ -2,7 +2,7 @@ diff --git a/toolkit/components/ifox/IfoxAgent.sys.mjs b/toolkit/components/ifox
 new file mode 100644
 --- /dev/null
 +++ b/toolkit/components/ifox/IfoxAgent.sys.mjs
-@@ -0,0 +1,586 @@
+@@ -0,0 +1,600 @@
 +/* Innocent Fox agent, parent process.
 + *
 + * Runs only when Firefox starts with -ifox-pipe <name>. Reads one JSON
@@ -28,6 +28,18 @@ new file mode 100644
 +  Alt: "AltLeft",
 +  Meta: "MetaLeft",
 +};
++
++// A person loads a page from the address bar, and Firefox moves focus from the
++// address bar into the page before it loads (UrlbarInput does
++// gBrowser.selectedBrowser.focus()). Loading from here does the same, so the
++// page has focus as it would for that person. Background tabs are left alone.
++function focusContent(browser) {
++  // ownerGlobal is undefined from a module; the document's window is not.
++  const win = browser.ownerDocument?.defaultView;
++  if (win?.gBrowser?.selectedBrowser === browser) {
++    browser.focus();
++  }
++}
 +
 +class Agent {
 +  QueryInterface = ChromeUtils.generateQI(["nsIObserver"]);
@@ -241,6 +253,7 @@ new file mode 100644
 +      const tab = win.gBrowser.addTrustedTab(url);
 +      if (!background) {
 +        win.gBrowser.selectedTab = tab;
++        focusContent(tab.linkedBrowser);
 +      }
 +      return tab.linkedBrowser;
 +    };
@@ -262,6 +275,7 @@ new file mode 100644
 +  navigate({ tab, timeout = 30000 }, go) {
 +    const b = this.browser(tab);
 +    return this.waitLoad(this.winOf(b), timeout, () => {
++      focusContent(b);
 +      go(b);
 +      return b;
 +    });

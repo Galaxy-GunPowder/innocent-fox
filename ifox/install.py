@@ -22,7 +22,7 @@ import zipfile
 from pathlib import Path
 
 REPO = "Galaxy-GunPowder/innocent-fox"
-BROWSER_VERSION = "0.1.0"          # the browser build this package drives; its own release tag
+BROWSER_VERSION = "0.2.0"          # the browser build this package drives; its own release tag
 HOME = Path(os.environ.get("IFOX_HOME") or Path(os.environ.get("LOCALAPPDATA", Path.home())) / "InnocentFox")
 INSTALLED = HOME / "browser" / "firefox" / "firefox.exe"
 _STAMP = HOME / "browser" / "ifox-version.txt"

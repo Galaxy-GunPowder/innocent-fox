@@ -1,0 +1,70 @@
+{
+ "base": "160.0.1",
+ "as": "158.0.1",
+ "prefs": {
+  "general.useragent.override": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+  "layout.css.scroll-driven-animations.enabled": false,
+  "media.webspeech.recognition.enable": false,
+  "dom.scoped-custom-element-registries.enabled": false,
+  "ifox.compat.webtransport.highWaterMark": true,
+  "ifox.webgl.hiddenExtensions": "EXT_clip_control,EXT_texture_mirror_clamp_to_edge,EXT_texture_norm16",
+  "ifox.compat.media.assertCanInstantiate": false,
+  "ifox.compat.media.synthesizeCodecConfig": false,
+  "ifox.compat.edits": "Document.customElementRegistry=hide;Element.customElementRegistry=hide;ShadowRoot.customElementRegistry=hide;WebTransport.responseHeaders=hide;WebTransport.exportKeyingMaterial=length:1;WebTransportDatagramDuplexStream.incomingMaxBufferedDatagrams=hide;WebTransportDatagramDuplexStream.outgoingMaxBufferedDatagrams=hide"
+ },
+ "why": {
+  "layout.css.scroll-driven-animations.enabled": [
+   "global ScrollTimeline",
+   "global ViewTimeline",
+   "Animation.rangeEnd",
+   "Animation.rangeStart",
+   "AnimationTimeline.duration",
+   "css scroll-timeline-axis",
+   "css scroll-timeline-name",
+   "css view-timeline-axis",
+   "css view-timeline-inset",
+   "css view-timeline-name"
+  ],
+  "media.webspeech.recognition.enable": [
+   "global SpeechGrammar",
+   "global SpeechGrammarList",
+   "global SpeechRecognition",
+   "global SpeechRecognitionAlternative",
+   "global SpeechRecognitionErrorEvent",
+   "global SpeechRecognitionEvent",
+   "global SpeechRecognitionPhrase",
+   "global SpeechRecognitionResult",
+   "global SpeechRecognitionResultList",
+   "global webkitSpeechGrammar",
+   "global webkitSpeechGrammarList",
+   "global webkitSpeechRecognition"
+  ],
+  "dom.scoped-custom-element-registries.enabled": [
+   "CustomElementRegistry.initialize",
+   "HTMLTemplateElement.shadowRootCustomElementRegistry"
+  ],
+  "ifox.compat.webtransport.highWaterMark": [
+   "WebTransportDatagramDuplexStream.incomingHighWaterMark",
+   "WebTransportDatagramDuplexStream.outgoingHighWaterMark",
+   "WebTransportDatagramDuplexStream.incomingHighWaterMark",
+   "WebTransportDatagramDuplexStream.outgoingHighWaterMark"
+  ],
+  "ifox.webgl.hiddenExtensions": [
+   "WebGL EXT_clip_control",
+   "WebGL EXT_texture_mirror_clamp_to_edge",
+   "WebGL EXT_texture_norm16"
+  ],
+  "ifox.compat.media.assertCanInstantiate": [
+   "drm.decoding.file video/webm; codecs=\"vp9\""
+  ],
+  "ifox.compat.media.synthesizeCodecConfig": [
+   "drm.decoding.file video/webm; codecs=\"vp9\""
+  ]
+ },
+ "needs_code": [
+  "css animation-range-end (only 160.0.1; check after the prefs)",
+  "css animation-range-start (only 160.0.1; check after the prefs)",
+  "css animation-timeline (only 160.0.1; check after the prefs)",
+  "css timeline-scope (only 160.0.1; check after the prefs)"
+ ]
+}

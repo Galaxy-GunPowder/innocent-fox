@@ -1,0 +1,49 @@
+{
+ "base": "160",
+ "versions": {
+  "159": {
+   "measured": "159.0.1",
+   "prefs": {
+    "general.useragent.override": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:159.0) Gecko/20100101 Firefox/159.0",
+    "media.webspeech.recognition.enable": false,
+    "ifox.compat.webtransport.highWaterMark": true,
+    "ifox.compat.media.assertCanInstantiate": false,
+    "ifox.compat.media.synthesizeCodecConfig": false,
+    "ifox.compat.edits": "WebTransport.responseHeaders=hide;WebTransport.exportKeyingMaterial=length:1;WebTransportDatagramDuplexStream.incomingMaxBufferedDatagrams=hide;WebTransportDatagramDuplexStream.outgoingMaxBufferedDatagrams=hide"
+   },
+   "needs_code": [],
+   "verified": {
+    "date": "2026-11-22",
+    "runs": 2,
+    "differences": 0,
+    "passed": true
+   }
+  },
+  "158": {
+   "measured": "158.0.1",
+   "prefs": {
+    "general.useragent.override": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0",
+    "layout.css.scroll-driven-animations.enabled": false,
+    "media.webspeech.recognition.enable": false,
+    "dom.scoped-custom-element-registries.enabled": false,
+    "ifox.compat.webtransport.highWaterMark": true,
+    "ifox.webgl.hiddenExtensions": "EXT_clip_control,EXT_texture_mirror_clamp_to_edge,EXT_texture_norm16",
+    "ifox.compat.media.assertCanInstantiate": false,
+    "ifox.compat.media.synthesizeCodecConfig": false,
+    "ifox.compat.edits": "Document.customElementRegistry=hide;Element.customElementRegistry=hide;ShadowRoot.customElementRegistry=hide;WebTransport.responseHeaders=hide;WebTransport.exportKeyingMaterial=length:1;WebTransportDatagramDuplexStream.incomingMaxBufferedDatagrams=hide;WebTransportDatagramDuplexStream.outgoingMaxBufferedDatagrams=hide"
+   },
+   "needs_code": [
+    "css animation-range-end (only 160.0.1; check after the prefs)",
+    "css animation-range-start (only 160.0.1; check after the prefs)",
+    "css animation-timeline (only 160.0.1; check after the prefs)",
+    "css timeline-scope (only 160.0.1; check after the prefs)"
+   ],
+   "verified": {
+    "date": "2026-11-22",
+    "runs": 2,
+    "differences": 0,
+    "passed": true
+   }
+  }
+ }
+}

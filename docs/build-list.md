@@ -192,9 +192,12 @@ Test case: sign up for an account on a real site, by script and by AI.
 | 9.5 | Save a detector script once, replay it locally through the script gate (1.7), so fixes are tested without hitting the site | tests |
 | 9.6 | Pipe test: a sign-up page records event trust, mouse moves, key codes, added globals, port 2828 | tests/pipe |
 | 9.7 | WebRTC leak test: direct finds the real IP, proxied runs show no address at all | tests/webrtc |
+| 9.8 | Identity lab: local TLS, HTTP/2 and HTTP/1.1 servers compare our build with official Firefox, no outside sites | done, tests/identity |
+| 9.9 | Bot lab: the same page opened by hand and by script; any difference is an automation trace | done, tests/identity/bot.py |
 
 ## 10. Upkeep
 
 | # | Item | How |
 |---|---|---|
+| 10.0 | Assembled versions: one 160 build shows 158 or 159 through `ifox.compat.*` switches; only lab-verified versions are offered | done, patch 12 + ifox/versions.json |
 | 10.1 | Package a portable zip: browser, tunnel, launcher | scripts |

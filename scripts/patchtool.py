@@ -7,6 +7,7 @@ Only files we touch are tracked: their original copy goes to D:\\ifox\\pristine.
   python scripts/patchtool.py save 02-navigator                  write those changes as patches/02-navigator.patch
   python scripts/patchtool.py redo 03-screen                     rebuild one patch after fixing its files in the tree
   python scripts/patchtool.py apply                              restore originals, apply every patch in order
+  python scripts/patchtool.py init                               fresh tree (another Firefox version): record originals of every patched file
 """
 import difflib
 import shutil
@@ -15,9 +16,15 @@ import sys
 import tempfile
 from pathlib import Path
 
-from common import PATCHES, SRC, WORK
+from common import MAJOR, PATCHES, PRISTINE, SRC, TREE
 
-PRISTINE = WORK / "pristine"
+
+def patch_list():
+    """patches/*.patch in order; patches/v159/<same name> replaces one for Firefox 159."""
+    own = PATCHES / f"v{MAJOR}"
+    return [own / p.name if (own / p.name).exists() else p for p in sorted(PATCHES.glob("*.patch"))]
+
+
 NEW_LIST = PRISTINE / "_new_files.txt"
 
 
@@ -30,7 +37,9 @@ def new_files():
 
 
 def tracked():
-    files = {p.relative_to(PRISTINE).as_posix() for p in PRISTINE.rglob("*") if p.is_file() and p != NEW_LIST}
+    # _branding holds Mozilla's icons for branding.py, not files a patch changes.
+    files = {p.relative_to(PRISTINE).as_posix() for p in PRISTINE.rglob("*")
+             if p.is_file() and p != NEW_LIST and not p.relative_to(PRISTINE).as_posix().startswith("_branding/")}
     return sorted(files | new_files())
 
 
@@ -62,13 +71,13 @@ def git_apply(patch, cwd):
 
 def staged_tree():
     """Temp dir holding tracked files with all saved patches applied."""
-    tmp = Path(tempfile.mkdtemp(prefix="ifox-stage-", dir=WORK))
+    tmp = Path(tempfile.mkdtemp(prefix="ifox-stage-", dir=TREE))
     for rel in tracked():
         p = PRISTINE / rel
         if p.exists():
             (tmp / rel).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(p, tmp / rel)
-    for patch in sorted(PATCHES.glob("*.patch")):
+    for patch in patch_list():
         git_apply(patch, tmp)
     return tmp
 
@@ -142,6 +151,27 @@ def cmd_redo(name):
     print(f"rebuilt {target.name}: {len(files)} files")
 
 
+def cmd_init():
+    """Record the originals of every file the patches touch, for a freshly unpacked tree."""
+    if tracked():
+        sys.exit(f"{PRISTINE} already holds originals")
+    PRISTINE.mkdir(parents=True, exist_ok=True)
+    added = set()
+    for patch in patch_list():
+        lines = patch.read_text(encoding="utf-8").splitlines()
+        for i, line in enumerate(lines):
+            if not line.startswith("diff --git "):
+                continue
+            rel = line.split(" b/", 1)[1].strip()
+            if i + 1 < len(lines) and lines[i + 1].startswith("new file mode"):
+                added.add(rel)
+            elif not (PRISTINE / rel).exists():
+                (PRISTINE / rel).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(SRC / rel, PRISTINE / rel)
+    NEW_LIST.write_text("\n".join(sorted(added)) + "\n")
+    print(f"recorded {len(tracked()) - len(added)} originals, {len(added)} new files")
+
+
 def cmd_apply():
     added = new_files()
     for rel in tracked():
@@ -150,9 +180,9 @@ def cmd_apply():
             dst.unlink(missing_ok=True)
         else:
             shutil.copy2(PRISTINE / rel, dst)
-    patches = sorted(PATCHES.glob("*.patch"))
+    patches = patch_list()
     for p in patches:
-        print(f"applying {p.name}")
+        print(f"applying {p.relative_to(PATCHES).as_posix()}")
         git_apply(p, SRC)
     print(f"{len(patches)} patches applied")
 
@@ -169,6 +199,8 @@ if __name__ == "__main__":
         cmd_save(args[0])
     elif cmd == "redo" and len(args) == 1:
         cmd_redo(args[0])
+    elif cmd == "init":
+        cmd_init()
     elif cmd == "apply":
         cmd_apply()
     else:

@@ -28,6 +28,7 @@ from .network import agent_args, proxy_prefs
 from .pipe import PipePair
 from . import profile as pf
 from . import install
+from . import versions
 from .install import INSTALLED
 from .winjob import Job
 
@@ -188,8 +189,20 @@ class Browser:
         proxy = s["proxy"]
         self.timezone = s["timezone"] if s["timezone"] != "auto" else ""
         self.langs = p.fingerprint.langs
+        # The user agent names the version of the browser actually launched, so a profile
+        # moved between a 160 and a 159 build never claims the wrong one.
+        self.version = fp.browser_version(binary)
+        # A profile's "version" makes this build show pages an older Firefox (ifox/versions.json).
+        # stock runs show the build exactly as it is, whatever the profile says.
+        self.shows = f"{s['version']}.0" if s.get("version") and not stock else self.version
+        try:
+            shown = versions.prefs(self.shows, self.version)
+        except ValueError as e:
+            raise IfoxError(str(e)) from None
+        p.fingerprint.user_agent = fp.user_agent(self.shows)
         fingerprint = None if stock else p.fingerprint
-        all_prefs = {**QUIET, **(FRONT if front else {}), **(fp.prefs(fingerprint, hidden) if fingerprint else {}),
+        page = versions.merge(fp.prefs(fingerprint, hidden) if fingerprint else {}, shown)
+        all_prefs = {**QUIET, **(FRONT if front else {}), **page,
                      **(proxy_prefs(proxy) if proxy else {}), **s["prefs"]}
         # Rewritten on every start, so a pref changed in the code reaches old profiles too.
         (self.folder / "user.js").write_text(_user_js(all_prefs), encoding="utf-8")

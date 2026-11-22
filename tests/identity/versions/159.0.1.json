@@ -1,0 +1,41 @@
+{
+ "base": "160.0.1",
+ "as": "159.0.1",
+ "prefs": {
+  "general.useragent.override": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:159.0) Gecko/20100101 Firefox/159.0",
+  "media.webspeech.recognition.enable": false,
+  "ifox.compat.webtransport.highWaterMark": true,
+  "ifox.compat.media.assertCanInstantiate": false,
+  "ifox.compat.media.synthesizeCodecConfig": false,
+  "ifox.compat.edits": "WebTransport.responseHeaders=hide;WebTransport.exportKeyingMaterial=length:1;WebTransportDatagramDuplexStream.incomingMaxBufferedDatagrams=hide;WebTransportDatagramDuplexStream.outgoingMaxBufferedDatagrams=hide"
+ },
+ "why": {
+  "media.webspeech.recognition.enable": [
+   "global SpeechGrammar",
+   "global SpeechGrammarList",
+   "global SpeechRecognition",
+   "global SpeechRecognitionAlternative",
+   "global SpeechRecognitionErrorEvent",
+   "global SpeechRecognitionEvent",
+   "global SpeechRecognitionPhrase",
+   "global SpeechRecognitionResult",
+   "global SpeechRecognitionResultList",
+   "global webkitSpeechGrammar",
+   "global webkitSpeechGrammarList",
+   "global webkitSpeechRecognition"
+  ],
+  "ifox.compat.webtransport.highWaterMark": [
+   "WebTransportDatagramDuplexStream.incomingHighWaterMark",
+   "WebTransportDatagramDuplexStream.outgoingHighWaterMark",
+   "WebTransportDatagramDuplexStream.incomingHighWaterMark",
+   "WebTransportDatagramDuplexStream.outgoingHighWaterMark"
+  ],
+  "ifox.compat.media.assertCanInstantiate": [
+   "drm.decoding.file video/webm; codecs=\"vp9\""
+  ],
+  "ifox.compat.media.synthesizeCodecConfig": [
+   "drm.decoding.file video/webm; codecs=\"vp9\""
+  ]
+ },
+ "needs_code": []
+}

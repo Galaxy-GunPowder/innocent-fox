@@ -1,0 +1,273 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>identity probe</title>
+<p id="state">probing</p>
+<script>
+// Everything a website can read that depends on the browser build, collected the
+// same way in official Firefox and in Innocent Fox, then posted to the local server.
+(async () => {
+  const out = {};
+  const names = o => { try { return Object.getOwnPropertyNames(o).sort(); } catch (e) { return "ERR " + e.name; } };
+  const safe = f => { try { return f(); } catch (e) { return "ERR " + e.name + ": " + e.message; } };
+  // A browser call that never answers must not stall the probe: give up after ms, and say so.
+  const limit = (promise, ms = 8000) => Promise.race([promise, new Promise(r => setTimeout(() => r("timeout"), ms))]);
+  const stage = s => fetch("/stage?" + s).catch(() => {});
+
+  // 1. API surface: every global, every prototype and static member.
+  const globals = names(window);
+  out.globals = globals;
+  const members = {};
+  for (const g of globals) {
+    let v;
+    try { v = window[g]; } catch (e) { continue; }
+    if (typeof v === "function") {
+      members[g + " static"] = names(v);
+      if (v.prototype) members[g + ".prototype"] = names(v.prototype);
+    } else if (v && typeof v === "object" && /^[A-Z]/.test(g)) {
+      members[g] = names(v);
+    }
+  }
+  out.members = members;
+  // Argument counts: a method whose signature changed keeps its name but not its length.
+  const sigs = {};
+  for (const g of globals) {
+    let v;
+    try { v = window[g]; } catch (e) { continue; }
+    if (typeof v !== "function" || !v.prototype) continue;
+    const list = [];
+    for (const k of names(v.prototype)) {
+      const d = Object.getOwnPropertyDescriptor(v.prototype, k);
+      if (d && typeof d.value === "function") list.push(k + "/" + d.value.length);
+      else if (d && d.get) list.push(k + (d.set ? " rw" : " r"));
+    }
+    if (list.length) sigs[g] = list;
+  }
+  out.signatures = sigs;
+  out.documentMembers = names(Object.getPrototypeOf(document));
+  out.navigatorMembers = names(Object.getPrototypeOf(navigator));
+
+  // 2. Values that describe the browser itself.
+  const nav = {};
+  for (const k in navigator) {
+    const v = safe(() => navigator[k]);
+    if (["string", "number", "boolean"].includes(typeof v)) nav[k] = v;
+  }
+  nav.languages = navigator.languages;
+  out.navigator = nav;
+  out.device = {
+    screen: [screen.width, screen.height, screen.availWidth, screen.availHeight, screen.colorDepth, screen.pixelDepth],
+    dpr: devicePixelRatio,
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    tzOffset: new Date(2026, 0, 1).getTimezoneOffset(),
+  };
+
+  // 3. CSS: every property the engine knows, and features that arrive by version.
+  out.cssProperties = Array.from(getComputedStyle(document.documentElement)).sort();
+  out.cssSupports = [
+    "selector(:has(a))", "selector(:popover-open)", "selector(:state(x))", "selector(::details-content)",
+    "(display: grid-lanes)", "(text-wrap: pretty)", "(interpolate-size: allow-keywords)",
+    "(anchor-name: --a)", "(position-area: top)", "(field-sizing: content)", "(view-transition-name: a)",
+    "(color: light-dark(red, blue))", "(width: calc-size(auto, size))", "(text-box: trim-both cap alphabetic)",
+    "(appearance: base-select)", "(scroll-marker-group: after)", "(reading-flow: normal)",
+    "(font-size: round(1px, 1px))", "(color: contrast-color(red))", "(corner-shape: squircle)",
+  ].map(q => [q, safe(() => CSS.supports(q))]);
+
+  // 4. JavaScript engine: error texts, function text, number formatting, math.
+  const errors = [];
+  for (const f of [() => null.x, () => undefined(), () => new Array(-1), () => JSON.parse("{"),
+                   () => BigInt(1.5), () => `${Symbol()}`, () => structuredClone(() => 1),
+                   () => new Intl.NumberFormat("xx-invalid-!"), () => "a".repeat(-1), () => decodeURI("%")]) {
+    try { f(); errors.push("no error"); } catch (e) { errors.push(e.constructor.name + ": " + e.message); }
+  }
+  out.errors = errors;
+  out.functionText = [Function.prototype.toString.call(Math.max), String(class A { m() {} }), String(async () => 1)];
+  out.math = [Math.tan(-1e300), Math.sinh(1), Math.expm1(1), Math.cbrt(100), Math.log1p(10),
+              Math.atan2(1, 3), Math.pow(Math.PI, -100), Math.acosh(1e300), Math.exp(10), (0.1).toFixed(20)];
+  out.intl = {
+    dateTime: Intl.DateTimeFormat().resolvedOptions(),
+    number: Intl.NumberFormat().resolvedOptions(),
+    counts: Intl.supportedValuesOf
+      ? Object.fromEntries(["calendar", "collation", "currency", "numberingSystem", "timeZone", "unit"]
+          .map(k => [k, Intl.supportedValuesOf(k).length]))
+      : null,
+    samples: [new Date(Date.UTC(2026, 0, 2, 3, 4, 5)).toLocaleString("en-US", { timeZone: "UTC" }),
+              (1234567.891).toLocaleString("de-DE"), new Intl.ListFormat("en").format(["a", "b", "c"]),
+              new Intl.RelativeTimeFormat("en").format(-1, "day"), new Intl.DisplayNames(["en"], { type: "region" }).of("BR")],
+  };
+
+  // 5. Media formats.
+  const types = ['video/mp4; codecs="avc1.42E01E"', 'video/webm; codecs="vp9"', 'video/webm; codecs="av01.0.05M.08"',
+                 'video/mp4; codecs="hev1.1.6.L93.B0"', 'audio/ogg; codecs="opus"', 'audio/mp4; codecs="mp4a.40.2"',
+                 "audio/flac", "audio/wav", 'audio/webm; codecs="opus"', 'video/mp4; codecs="av01.0.05M.08"'];
+  const video = document.createElement("video");
+  out.media = types.map(t => [t, video.canPlayType(t),
+    window.MediaSource ? MediaSource.isTypeSupported(t) : null,
+    window.MediaRecorder ? MediaRecorder.isTypeSupported(t) : null]);
+
+  // 6. Graphics: WebGL and WebGL2 limits and extensions (real GPU in both runs).
+  const glInfo = type => {
+    const gl = document.createElement("canvas").getContext(type);
+    if (!gl) return null;
+    const ids = ["MAX_TEXTURE_SIZE", "MAX_VIEWPORT_DIMS", "MAX_VERTEX_ATTRIBS", "MAX_VERTEX_UNIFORM_VECTORS",
+                 "MAX_FRAGMENT_UNIFORM_VECTORS", "MAX_RENDERBUFFER_SIZE", "ALIASED_LINE_WIDTH_RANGE",
+                 "ALIASED_POINT_SIZE_RANGE", "MAX_TEXTURE_IMAGE_UNITS", "VERSION", "SHADING_LANGUAGE_VERSION",
+                 "VENDOR", "RENDERER"];
+    const params = {};
+    for (const id of ids) { const v = gl.getParameter(gl[id]); params[id] = v && v.length !== undefined && typeof v !== "string" ? Array.from(v) : v; }
+    const dbg = gl.getExtension("WEBGL_debug_renderer_info");
+    if (dbg) params.UNMASKED = [gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL), gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)];
+    return { extensions: gl.getSupportedExtensions(), params };
+  };
+  out.webgl = glInfo("webgl");
+  out.webgl2 = glInfo("webgl2");
+
+  // 7. Fonts: text widths depend on the fonts and the text engine.
+  const ctx = document.createElement("canvas").getContext("2d");
+  out.textWidths = ["16px serif", "16px sans-serif", "16px monospace", "16px Arial", '16px "Segoe UI"',
+                    "16px Calibri", '16px "Times New Roman"', "16px Consolas", "16px system-ui", "16px emoji"]
+    .map(f => { ctx.font = f; return [f, ctx.measureText("Innocent Fox 0123456789 WMgy é中").width]; });
+
+  // 8. Audio, timers, permissions, workers.
+  const ac = new (window.OfflineAudioContext || window.AudioContext)(1, 44100, 44100);
+  out.audio = { sampleRate: new AudioContext().sampleRate, maxChannels: new AudioContext().destination.maxChannelCount };
+  const steps = new Set();
+  let last = performance.now();
+  for (let i = 0; i < 200000 && steps.size < 20; i++) { const t = performance.now(); if (t !== last) { steps.add(+(t - last).toFixed(4)); last = t; } }
+  out.timerSteps = [...steps].sort((a, b) => a - b).slice(0, 3);
+  out.permissions = {};
+  for (const name of ["geolocation", "notifications", "camera", "microphone", "persistent-storage", "push", "midi", "storage-access", "screen-wake-lock"]) {
+    out.permissions[name] = await limit(navigator.permissions.query({ name, userVisibleOnly: true }).then(p => p.state, e => "ERR " + e.name));
+  }
+  out.worker = await new Promise(resolve => {
+    const src = "postMessage({globals: Object.getOwnPropertyNames(self).sort(), ua: navigator.userAgent, cores: navigator.hardwareConcurrency, langs: navigator.languages, tz: Intl.DateTimeFormat().resolvedOptions().timeZone})";
+    const w = new Worker(URL.createObjectURL(new Blob([src], { type: "text/javascript" })));
+    w.onmessage = e => resolve(e.data);
+    w.onerror = e => resolve("ERR " + e.message);
+    setTimeout(() => resolve("timeout"), 5000);
+  });
+  out.voices = await new Promise(resolve => {
+    const v = speechSynthesis.getVoices();
+    if (v.length) return resolve(v.map(x => x.name + "|" + x.lang));
+    speechSynthesis.onvoiceschanged = () => resolve(speechSynthesis.getVoices().map(x => x.name + "|" + x.lang));
+    setTimeout(() => resolve([]), 3000);
+  });
+
+  // 9. Network: header order of a fetch, an image, and an HTTP/1.1-only server (the lab records them).
+  const q = new URLSearchParams(location.search);
+  await fetch("/fetch-headers", { method: "GET" }).catch(() => {});
+  await new Promise(r => { const i = new Image(); i.onload = i.onerror = r; i.src = "/img-headers"; });
+  await fetch(`https://localhost:${q.get("h1")}/h1-headers`, { mode: "no-cors" }).catch(() => {});
+
+  // 10. DRM and codecs. Official Firefox downloads Widevine and OpenH264 after its first start,
+  // so these are read now and again after ?late= seconds.
+  const drm = async () => {
+    const res = {};
+    const cfg = (robust) => [{ initDataTypes: ["cenc"], videoCapabilities: [{ contentType: 'video/mp4; codecs="avc1.42E01E"', robustness: robust }],
+                               audioCapabilities: [{ contentType: 'audio/mp4; codecs="mp4a.40.2"' }] }];
+    for (const [ks, robust] of [["com.widevine.alpha", ""], ["com.widevine.alpha", "SW_SECURE_DECODE"], ["com.widevine.alpha", "HW_SECURE_ALL"],
+                                ["org.w3.clearkey", ""], ["com.microsoft.playready.recommendation", ""], ["com.apple.fps", ""]]) {
+      res[ks + (robust ? "/" + robust : "")] = navigator.requestMediaKeySystemAccess
+        ? await limit(navigator.requestMediaKeySystemAccess(ks, cfg(robust)).then(a => "ok " + JSON.stringify(a.getConfiguration().videoCapabilities.map(v => v.robustness)), e => "ERR " + e.name))
+        : "no API";
+    }
+    const rtc = kind => safe(() => RTCRtpSender.getCapabilities(kind).codecs.map(c => c.mimeType + (c.sdpFmtpLine ? " " + c.sdpFmtpLine : "")).sort());
+    res.rtcSendVideo = rtc("video");
+    res.rtcSendAudio = safe(() => RTCRtpSender.getCapabilities("audio").codecs.map(c => c.mimeType).sort());
+    res.rtcRecvVideo = safe(() => RTCRtpReceiver.getCapabilities("video").codecs.map(c => c.mimeType).sort());
+    res.decoding = {};
+    for (const [t, c] of [["file", 'video/mp4; codecs="avc1.42E01E"'], ["file", 'video/mp4; codecs="av01.0.05M.08"'],
+                          ["file", 'video/webm; codecs="vp9"'], ["file", 'video/mp4; codecs="hev1.1.6.L93.B0"'],
+                          ["media-source", 'video/mp4; codecs="avc1.640028"']]) {
+      res.decoding[t + " " + c] = await limit(navigator.mediaCapabilities.decodingInfo({ type: t, video: { contentType: c, width: 1920, height: 1080, bitrate: 5e6, framerate: 30 } })
+        .then(r => [r.supported, r.smooth, r.powerEfficient].join(","), e => "ERR " + e.name));
+    }
+    return res;
+  };
+  stage("drm");
+  out.drm = await drm();
+  stage("bot");
+
+  // 11. Bot signals: what bot checkers read. In both a driven and a plain run these must match.
+  const desc = (o, k) => { const d = Object.getOwnPropertyDescriptor(o, k); return d ? Object.keys(d).sort().join(",") + (d.get ? " " + Function.prototype.toString.call(d.get).replace(/\s+/g, " ") : "") : "none"; };
+  const frame = document.createElement("iframe");
+  document.body.appendChild(frame);
+  const rafRate = await new Promise(r => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 1000) requestAnimationFrame(f); else r(n > 45 ? "45+" : n > 20 ? "20-45" : "<20"); }; requestAnimationFrame(f); });
+  out.bot = {
+    webdriver: navigator.webdriver,
+    webdriverOwn: Object.prototype.hasOwnProperty.call(navigator, "webdriver"),
+    webdriverDescriptor: desc(Navigator.prototype, "webdriver"),
+    iframeWebdriver: safe(() => frame.contentWindow.navigator.webdriver),
+    iframeSameNavigatorProto: safe(() => Object.getOwnPropertyNames(frame.contentWindow.Navigator.prototype).join() === Object.getOwnPropertyNames(Navigator.prototype).join()),
+    documentAttributes: [...document.documentElement.attributes].map(a => a.name),
+    hasFocus: document.hasFocus(),
+    visibility: document.visibilityState,
+    hidden: document.hidden,
+    rafPerSecond: rafRate,
+    windowChrome: typeof window.chrome,
+    plugins: navigator.plugins.length,
+    mimeTypes: navigator.mimeTypes.length,
+    pdfViewerEnabled: navigator.pdfViewerEnabled,
+    notification: typeof Notification !== "undefined" ? Notification.permission : "none",
+    notificationsQuery: out.permissions.notifications,
+    mediaDevices: await limit(navigator.mediaDevices.enumerateDevices().then(d => d.map(x => x.kind).sort().join(","), e => "ERR " + e.name)),
+    outerMinusInner: [outerWidth - innerWidth >= 0, outerHeight - innerHeight > 0],
+    windowOnScreen: [screenX >= -50, screenY >= -50, outerWidth <= screen.width + 50],
+    softwareGpu: /SwiftShader|llvmpipe|Basic Render|Mesa OffScreen/i.test(JSON.stringify(out.webgl && out.webgl.params)),
+    stackOrigins: (() => { try { null.x; } catch (e) { return [...new Set((e.stack.match(/(\w+):\/\/[^\s:)]+/g) || []).map(u => u.split("/")[0]))]; } })(),
+    nativeToString: [navigator.__lookupGetter__("userAgent"), HTMLCanvasElement.prototype.toDataURL, WebGLRenderingContext.prototype.getParameter,
+                     Date.prototype.getTimezoneOffset, navigator.__lookupGetter__("hardwareConcurrency")].map(f => /\{\s*\[native code\]\s*\}$/.test(Function.prototype.toString.call(f))),
+    uaMatchesWorker: out.worker && out.worker.ua === navigator.userAgent,
+    coresMatchWorker: out.worker && out.worker.cores === navigator.hardwareConcurrency,
+    langsMatchWorker: out.worker && JSON.stringify(out.worker.langs) === JSON.stringify(navigator.languages),
+    tzMatchesWorker: out.worker && out.worker.tz === out.device.timeZone,
+    userActivation: safe(() => [navigator.userActivation.hasBeenActive, navigator.userActivation.isActive]),
+    historyLength: history.length,
+    openerNull: window.opener === null,
+  };
+  frame.remove();
+
+  // 12. Driven run only (?drive=1): the driver moves, clicks and types; the page records what it got.
+  if (q.get("drive")) {
+    const box = document.createElement("div");
+    box.innerHTML = '<button id="bot-button" style="margin:40px;padding:12px 30px">Press</button><input id="bot-input" style="margin:20px">';
+    document.body.appendChild(box);
+    const ev = { moves: 0, pointerTypes: new Set(), log: [] };
+    addEventListener("mousemove", e => { ev.moves++; ev.pointerTypes.add(e.mozInputSource); ev.trustedMoves = (ev.trustedMoves || 0) + e.isTrusted; }, true);
+    for (const t of ["pointerdown", "mousedown", "pointerup", "mouseup", "click", "keydown", "keyup", "input", "focus"]) {
+      addEventListener(t, e => ev.log.push({ t, trusted: e.isTrusted, at: Math.round(e.timeStamp),
+        ...(e.clientX !== undefined ? { cx: e.clientX, sx: e.screenX - screenX - (outerWidth - innerWidth) / 2, buttons: e.buttons, detail: e.detail,
+                                        pointerType: e.pointerType, pressure: e.pressure, w: e.width, mozSrc: e.mozInputSource } : {}),
+        ...(e.key ? { key: e.key, code: e.code } : {}) }), true);
+    }
+    document.title = "ready";
+    await new Promise(r => { const i = setInterval(() => { if (document.getElementById("bot-input").value === "hello") { clearInterval(i); setTimeout(r, 500); } }, 100); setTimeout(r, 60000); });
+    const at = t => ev.log.filter(x => x.t === t);
+    const gap = (a, b) => at(a)[0] && at(b)[0] ? at(b)[0].at - at(a)[0].at : null;
+    out.driven = {
+      gotText: document.getElementById("bot-input").value,
+      moves: ev.moves > 5 ? "6+" : ev.moves,
+      allTrusted: ev.log.every(x => x.trusted) && ev.trustedMoves === ev.moves,
+      pointerInput: [...ev.pointerTypes],
+      clickSequence: ev.log.filter(x => ["pointerdown", "mousedown", "pointerup", "mouseup", "click"].includes(x.t)).map(x => x.t).join(","),
+      pressMs: gap("mousedown", "mouseup"),
+      clickPointerType: (at("pointerdown")[0] || {}).pointerType,
+      clickPressure: (at("pointerdown")[0] || {}).pressure,
+      clickButtons: (at("mousedown")[0] || {}).buttons,
+      keyGapsMs: at("keydown").slice(1).map((k, i) => k.at - at("keydown")[i].at),
+      keyHoldMs: at("keydown").map((k, i) => at("keyup")[i] ? at("keyup")[i].at - k.at : null),
+      hasFocusAfter: document.hasFocus(),
+      userActivationAfter: safe(() => [navigator.userActivation.hasBeenActive, navigator.userActivation.isActive]),
+    };
+  }
+
+  const late = +q.get("late") || 0;
+  if (late) {
+    await new Promise(r => setTimeout(r, late * 1000));
+    out.drmLate = await drm();
+  }
+
+  stage("post");
+  await fetch("/result", { method: "POST", body: JSON.stringify(out) });
+  document.getElementById("state").textContent = "done";
+})().catch(e => fetch("/result", { method: "POST", body: JSON.stringify({ fatal: String(e && e.stack || e) }) }));
+</script>

@@ -41,7 +41,7 @@ with Browser(proxy=PROXY) as b: ...          # the built-in default: random ever
 with Browser(proxy=PROXY, device="i7-12700-gtx1660") as b: ...   # the default with one setting fixed
 ```
 
-The `default` profile is always there and needs no `create`. Every use gets a new random device, screen, scale and canvas seed. It uses this computer's real GPU, and its folder is deleted on close. `Browser()`, `Browser("default")` and `profile.load("default")` all give it; `wipe_history`, `delete` and `create` refuse it.
+The `default` profile is always there and needs no `create`. Every use gets a new random device, screen, scale, canvas seed and Firefox version. It uses this computer's real GPU, and its folder is deleted on close. `Browser()`, `Browser("default")` and `profile.load("default")` all give it; `wipe_history`, `delete` and `create` refuse it.
 
 | Setting | Default | Does |
 |---|---|---|
@@ -53,6 +53,7 @@ The `default` profile is always there and needs no `create`. Every use gets a ne
 | `touch` | 0 | touch points |
 | `gpu_mode` | `"fake"` (`default`: `"real"`) | `"real"` = this computer's GPU |
 | `seed` | random, kept | canvas noise key |
+| `version` | random, kept | Firefox version websites see: `"160"`, `"159"` or `"158"` (`profile.VERSIONS`) |
 | `prefs` | `{}` | extra Firefox prefs |
 
 Also: `profile.load(name)`, `profile.get(name)` (load or create), `profile.names()`, `profile.exists(name)`.

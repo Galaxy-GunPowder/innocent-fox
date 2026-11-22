@@ -6,8 +6,24 @@ so nothing contradicts anything else (a 4-core laptop never reports a desktop GP
 import json
 import random
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
 
-FIREFOX_VERSION = "160.0"
+FIREFOX_VERSION = "160.0"      # used until a browser is launched; then the browser's own version
+
+
+def user_agent(version=FIREFOX_VERSION):
+    return f"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:{version}) Gecko/20100101 Firefox/{version}"
+
+
+def browser_version(exe):
+    """"159.0" for a Firefox 159.0.1 build, read from application.ini next to firefox.exe."""
+    try:
+        for line in (Path(exe).parent / "application.ini").read_text(encoding="utf-8").splitlines():
+            if line.startswith("Version="):
+                return line.split("=", 1)[1].split(".")[0] + ".0"
+    except OSError:
+        pass
+    return FIREFOX_VERSION
 
 # Starter device list: real Windows laptop/desktop configurations.
 # Replace with measured data before relying on it; one entry = one physical machine.
@@ -91,7 +107,7 @@ def make(place="US-East", device=None, seed=None, webrtc_ip="", gpu_mode="fake")
     w, h = d["screen"]
     return Profile(
         device=d["name"], place=place, seed=seed,
-        user_agent=f"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:{FIREFOX_VERSION}) Gecko/20100101 Firefox/{FIREFOX_VERSION}",
+        user_agent=user_agent(),
         cores=d["cores"], screen=(w, h), dpr=d["dpr"],
         gpu=d["gpu"], tz=p["tz"], langs=p["langs"], webrtc_ip=webrtc_ip, gpu_mode=gpu_mode,
         extra={k: d[k] for k in MEASURED_KEYS if k in d},

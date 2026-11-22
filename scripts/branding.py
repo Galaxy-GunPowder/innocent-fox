@@ -4,16 +4,18 @@
   python scripts/branding.py restore   put Mozilla's icons back
 
 Icons are binary, so they live here instead of in patches/. The originals are
-kept in D:\\ifox\\pristine\\_branding. The name change is patch 11.
-Pages can't see either: the user agent still says Firefox/160.0.
+kept in the tree's pristine\\_branding folder. The name change is patch 11.
+Pages can't see either: the user agent still says Firefox.
 """
 import shutil
 import sys
 from pathlib import Path
 
+from common import PRISTINE, SRC as TREE_SRC
+
 ROOT = Path(__file__).resolve().parents[1]
-SRC = Path(r"D:\ifox\src\browser\branding\unofficial")
-KEEP = Path(r"D:\ifox\pristine\_branding")
+SRC = TREE_SRC / "browser" / "branding" / "unofficial"
+KEEP = PRISTINE / "_branding"
 ICON = ROOT / "branding" / "fox.ico"
 TARGETS = ["firefox.ico", "firefox64.ico"]   # compiled into firefox.exe: window, taskbar, shortcut
 
