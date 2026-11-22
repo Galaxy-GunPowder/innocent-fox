@@ -111,7 +111,7 @@ Install it, write a short Python script, and it runs. Building it yourself is on
 You need Windows 10 or 11 (64-bit) and Python 3.10 or newer. Install with one command:
 
 ```
-pip install https://github.com/Galaxy-GunPowder/innocent-fox/releases/download/v0.2.0/innocent_fox-0.2.0-py3-none-any.whl
+pip install https://github.com/Galaxy-GunPowder/innocent-fox/releases/download/v0.2.1/innocent_fox-0.2.1-py3-none-any.whl
 ```
 
 The first time your script opens a browser, it downloads the browser itself (130 MB) and checks it. After that it starts in about 2 seconds.
