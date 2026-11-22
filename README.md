@@ -53,74 +53,25 @@ Public bot and fingerprint checkers, run on 21 November 2026 with the built-in d
 
 # How to use
 
-The download is the finished, ready-to-use browser: everything above is already built in.
-Install it, write a short Python script, and it runs. Building it yourself is only needed if you want to change the browser.
+### Download or build
 
-### Download
-
-You need Windows 10 or 11 (64-bit) and Python 3.10 or newer. Install with one command:
+Windows 10 or 11 (64-bit) and Python 3.10 or newer:
 
 ```
 pip install https://github.com/Galaxy-GunPowder/innocent-fox/releases/download/v0.2.1/innocent_fox-0.2.1-py3-none-any.whl
 ```
 
-The first time your script opens a browser, it downloads the browser itself (130 MB) and checks it. After that it starts in about 2 seconds.
-You can also get the browser zip from the [releases page](https://github.com/Galaxy-GunPowder/innocent-fox/releases) and install it with `ifox-install --zip <file>`.
+The first `Browser()` downloads the browser (130 MB) and checks it; after that it starts in about 2 seconds.
+Building it yourself is only needed to change the browser; it takes about 90 minutes, in `D:\ifox`:
 
-### Profiles
-
-A profile is one online identity: device, Firefox version, proxy, location and cookies, all kept together.
-Saved profiles stay the same person every run; the built-in default is new every run and keeps nothing.
-
-| Layer | What websites see | Set by |
-|---|---|---|
-| Device | CPU cores, screen, display scale, graphics card, canvas | `device`: random, then kept |
-| Version | Web APIs and the TLS and HTTP/2 handshake of Firefox 158, 159 or 160 | `version`: random, then kept |
-| Network | IP address; WebRTC and DNS go through the proxy too | `proxy` |
-| Location | Time zone and languages of the proxy's country | `timezone`, `langs` |
-| Storage | Cookies, logins and history | kept per profile |
-| Behaviour | Human mouse paths and typing, no automation traces | built in |
-
-### Browser version
-
-Innocent Fox is built once, from Firefox 160. Each profile then shows websites Firefox 158, 159 or 160.
-
-| Term | Meaning |
-|---|---|
-| Assembled browser | One build that is several Firefox versions to websites |
-| Base build | The engine actually built: Firefox 160.0.1 |
-| Shown version | The version a website sees: 158, 159 or 160 |
-| Version switch | Settings that turn off what is newer than the shown version (`ifox.compat.*`) |
-| Verified | 0 differences from the official release in the identity lab |
-
-```python
-from ifox import Browser, profile
-
-p = profile.create("shop1")                  # picks 158, 159 or 160 at random, then keeps it
-print(p.settings["version"])                 # "159"
-profile.create("shop2", version="158")       # always Firefox 158 to websites
-p.update(version="160")                      # change it later; cookies stay
-
-with Browser("shop2") as b:                  # websites see Firefox 158
-    b.open("https://example.com/")
-with Browser(version="159") as b:            # the built-in default, as 159 for this run
-    b.open("https://example.com/")
+```
+python scripts/fetch_source.py          # Firefox 160.0.1 source into D:\ifox\src
+python scripts/patchtool.py apply       # patches/*.patch, in order
+python scripts/build.py                 # build the browser
+python scripts/build.py package         # make the release zip
 ```
 
-Lab results: our build against official Firefox from mozilla.org, 22 November 2026, 2 runs each, on local test servers only.
-The lab compares TLS (JA3, JA4), HTTP/2, header order, web APIs, CSS, media codecs and WebGL.
-
-| Shown version | Differences from official | |
-|---|:---:|:---:|
-| Firefox 160 | 0 | ✅ |
-| Firefox 159 | 0 | ✅ |
-| Firefox 158 | 0 | ✅ |
-
-The bot lab opens the same page by hand and by script: 0 automation traces, 13/13 input checks.
-
-### Profile settings
-
-Every setting written out, with its default:
+### Manage profiles
 
 ```python
 from ifox import profile
@@ -148,45 +99,34 @@ p = profile.load("shop1")        # a saved one
 p.update(langs=["en-US", "en"])  # change settings; cookies stay
 p.wipe_history()                 # cookies, logins, history gone; settings stay
 profile.delete("shop1")          # the whole folder
+print(profile.names())           # every profile; "default" is built in
 ```
 
-Devices to pick from: `profile.DEVICES`. Versions: `profile.VERSIONS`.
+Browser version: one build, shown to websites as Firefox 158, 159 or 160; each shows 0 differences from official in the [identity lab](tests/identity).
 
-### Your first script
+### Browser automation
 
 ```python
-from ifox import Browser
+from ifox import Browser, profile
 
-with Browser("shop1") as b:                                  # a saved profile; Browser() = the built-in default
+profile.get("shop1", proxy="https://user:pass@host:port")   # first run creates it, later runs load it
+
+with Browser("shop1") as b:                      # same device, version and cookies every run
     tab = b.open("https://example.com/login")
-    tab.type("#email", "a@example.com")                     # human typing rhythm
-    tab.click("text=Sign in")                                # human mouse path, real click
-    print(tab.check())                                       # what the page sees, next to the profile
+    tab.type("#email", "a@example.com")          # human typing rhythm
+    tab.press("Enter")
+    tab.wait("#account")                         # waits until it appears
+    print(tab.text("#account"))
+    tab.frame("iframe#login").click("text=Continue")   # the same calls inside a frame
+    print(tab.js("return document.title"))       # JavaScript the page can't see
+    tab.shot("page.png")
+    print(tab.check())                           # what the page sees, next to the profile
+
+with Browser(proxy="https://user:pass@host:port") as b:   # the built-in default: new identity, nothing kept
+    b.open("https://example.com/").click("text=Sign in")  # human mouse path, real click
 ```
 
-### Common calls
-
-| Call | What it does |
-|---|---|
-| `b.open(url)`, `tab.goto(url)` | Open a page |
-| `tab.click`, `type`, `press`, `hover` | Use the mouse and keyboard like a person |
-| `tab.wait(sel)`, `text(sel)`, `exists(sel)` | Read the page |
-| `tab.frame("iframe#pay")` | The same calls inside a frame |
-| `tab.js("return document.title")` | Run JavaScript the page can't see |
-| `tab.shot("page.png")` | Take a screenshot |
-
-Every setting and call is explained in [docs/scripting.md](docs/scripting.md), with a full example in [examples/profiles.py](examples/profiles.py).
-
-### Build it yourself
-
-Only needed if you want to change the browser. The scripts expect the folder `D:\ifox` (no spaces in the path), and the first build takes about 90 minutes.
-
-```
-python scripts/fetch_source.py          # Firefox 160.0.1 source into D:\ifox\src
-python scripts/patchtool.py apply       # patches/*.patch, in order
-python scripts/build.py                 # build the browser
-python scripts/build.py package         # make the release zip
-```
+Every setting and call: [docs/scripting.md](docs/scripting.md).
 
 <br>
 
