@@ -45,7 +45,12 @@ user_pref("browser.shell.checkDefaultBrowser", false);
 user_pref("datareporting.policy.dataSubmissionPolicyBypassNotification", true);
 user_pref("toolkit.telemetry.reportingpolicy.firstRun", false);
 user_pref("app.update.disabledForTesting", true);
+user_pref("browser.startup.windowsLaunchOnLogin.enabled", false);
+user_pref("browser.startup.windowsLaunchOnLogin.alreadyApplied", true);
 """
+
+# No policies.json in the official copies: any active enterprise policy turns Web Serial off
+# by default (EnterprisePoliciesParent.sys.mjs), which a page sees as a missing navigator.serial.
 
 
 # ---------------------------------------------------------------- browsers
@@ -56,11 +61,19 @@ def ours(version):
     return tree / "obj" / "dist" / "bin" / "firefox.exe"
 
 
+def no_updater(exe):
+    """Official copies never update: without updater.exe a downloaded update can't be installed.
+    Pages can't see it."""
+    for name in ("updater.exe", "updater.ini", "maintenanceservice.exe", "maintenanceservice_installer.exe"):
+        (exe.parent / name).unlink(missing_ok=True)
+    return exe
+
+
 def official(version):
     import urllib.request
     exe = OFFICIAL / version / "core" / "firefox.exe"
     if exe.exists():
-        return exe
+        return no_updater(exe)
     OFFICIAL.mkdir(parents=True, exist_ok=True)
     base = f"https://archive.mozilla.org/pub/firefox/releases/{version}"
     name = f"win64/en-US/Firefox Setup {version}.exe"
@@ -78,7 +91,7 @@ def official(version):
     setup.unlink()
     if not exe.exists():
         sys.exit(f"official {version}: no core/firefox.exe after unpacking")
-    return exe
+    return no_updater(exe)
 
 
 def prefs_js(prefs):
@@ -112,7 +125,11 @@ def run(exe, prefs=None, timeout=180, late=0, tries=2):
 
 def run_once(exe, prefs, timeout, late):
     srv = lab.Lab()
-    profile = lab.fresh_profile(USER_JS + prefs_js(prefs or {}))
+    # A new profile checks for updates 30 s in (last check = 0); say it just checked. Plain runs
+    # ignore app.update.disabledForTesting, so without this an official copy updates itself.
+    no_update = {"app.update.lastUpdateTime.background-update-timer": int(time.time())}
+    profile = lab.fresh_profile(USER_JS + prefs_js(no_update) + prefs_js(prefs or {}))
+    forget_lab_installs()
     job = Job()
     try:
         job.start([str(exe), "-no-remote", "-wait-for-browser", "-profile", str(profile), srv.url(late=late)])
@@ -126,7 +143,56 @@ def run_once(exe, prefs, timeout, late):
         job.close()
         srv.close()
         lab.remove_profile(profile)
+        forget_lab_installs()
     return result
+
+
+def forget_lab_installs():
+    """Remove what a lab Firefox leaves in Windows: a Run value that opens it at login (Mozilla
+    can switch that on remotely), its background-update scheduled task, and any update it
+    downloaded, which would replace the copy with a newer version on its next start.
+    Only entries for installs in D:\\ifox are touched."""
+    import winreg
+    root = str(WORK).lower()
+    for staged in OFFICIAL.glob("*/core/updated"):
+        shutil.rmtree(staged, ignore_errors=True)
+    update_root = Path(r"C:\ProgramData\Mozilla-1de4eec8-1241-4177-a864-e594e8d1fb38\updates")
+    hashes = set()    # Firefox names each install's update folder by a hash it records here
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Mozilla\Firefox\TaskBarIDs") as ids:
+            i = 0
+            while True:
+                try:
+                    path, value, _ = winreg.EnumValue(ids, i)
+                except OSError:
+                    break
+                if path.lower().startswith(root):
+                    hashes.add(str(value).upper())
+                i += 1
+    except OSError:
+        pass
+    for folder in update_root.glob("*"):
+        logs = " ".join(f.read_text(errors="ignore") for f in folder.glob("updates/*.log")).lower()
+        if folder.name.upper() in hashes or f"installation directory {root}" in logs:
+            shutil.rmtree(folder, ignore_errors=True)
+    key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0,
+                         winreg.KEY_READ | winreg.KEY_SET_VALUE)
+    with key:
+        names, i = [], 0
+        while True:
+            try:
+                name, value, _ = winreg.EnumValue(key, i)
+            except OSError:
+                break
+            if name.startswith("Mozilla-Firefox") and root in str(value).lower():
+                names.append(name)
+            i += 1
+        for name in names:
+            winreg.DeleteValue(key, name)
+    ps = ("Get-ScheduledTask -TaskPath '\\Mozilla\\' -ErrorAction SilentlyContinue | "
+          f"Where-Object {{ ($_.Actions.Execute -join ' ').ToLower().Contains('{root}') }} | "
+          "Unregister-ScheduledTask -Confirm:$false")
+    subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, timeout=60)
 
 
 # ---------------------------------------------------------------- diff

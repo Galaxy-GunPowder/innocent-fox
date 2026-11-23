@@ -13,7 +13,7 @@
    },
    "needs_code": [],
    "verified": {
-    "date": "2026-11-22",
+    "date": "2026-11-24",
     "runs": 2,
     "differences": 0,
     "passed": true
@@ -39,7 +39,7 @@
     "css timeline-scope (only 160.0.1; check after the prefs)"
    ],
    "verified": {
-    "date": "2026-11-22",
+    "date": "2026-11-24",
     "runs": 2,
     "differences": 0,
     "passed": true

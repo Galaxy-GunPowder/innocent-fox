@@ -201,3 +201,15 @@ Test case: sign up for an account on a real site, by script and by AI.
 |---|---|---|
 | 10.0 | Assembled versions: one 160 build shows 158 or 159 through `ifox.compat.*` switches; only lab-verified versions are offered | done, patch 12 + ifox/versions.json |
 | 10.1 | Package a portable zip: browser, tunnel, launcher | scripts |
+
+## 11. Adorea built in (from 2026-11-24)
+
+Adorea moves from a separate Chrome extension into Innocent Fox. Box 1 stays the brain; the browser carries the panel, the hands and a command channel.
+
+| # | Item | How |
+|---|---|---|
+| 11.1 | Adorea panel in the browser's own sidebar: sign in, profiles, Apply, Bulk; screens reused from the extension | browser chrome |
+| 11.2 | Driver on the pipe agent verbs (find, mouse, key, js, shot) in place of `chrome.scripting` and `chrome.debugger` | agent |
+| 11.3 | Command channel: `adorea` verbs on the agent pipe (apply, bulk, stop, status), so Python and any outside AI can run it | agent + launcher |
+| 11.4 | Off by default, one profile setting turns it on; identity and bot labs must still show 0 differences with it on | profile + tests |
+| 11.5 | Small command model: train on box 1 turn logs once there are enough; until then box 1's model does every turn | data + training |
