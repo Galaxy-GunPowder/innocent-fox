@@ -205,6 +205,7 @@ Test case: sign up for an account on a real site, by script and by AI.
 ## 11. Adorea built in (from 2026-11-24)
 
 Adorea moves from a separate Chrome extension into Innocent Fox. Box 1 stays the brain; the browser carries the panel, the hands and a command channel.
+This repo keeps only the open hooks (sidebar slot, pipe verbs). Adorea's own code is closed and ships in a separate Adorea download, not on GitHub.
 
 | # | Item | How |
 |---|---|---|
@@ -212,4 +213,6 @@ Adorea moves from a separate Chrome extension into Innocent Fox. Box 1 stays the
 | 11.2 | Driver on the pipe agent verbs (find, mouse, key, js, shot) in place of `chrome.scripting` and `chrome.debugger` | agent |
 | 11.3 | Command channel: `adorea` verbs on the agent pipe (apply, bulk, stop, status), so Python and any outside AI can run it | agent + launcher |
 | 11.4 | Off by default, one profile setting turns it on; identity and bot labs must still show 0 differences with it on | profile + tests |
-| 11.5 | Small command model: train on box 1 turn logs once there are enough; until then box 1's model does every turn | data + training |
+| 11.5 | Page reader: the browser's own view of a page (controls, labels, layout, screenshot) as one compact input for a model | agent |
+| 11.6 | Tiny model, step 1: name each form field (email, first name, salary...) from the page reader; trained on box 1 turn logs | data + training |
+| 11.7 | Tiny model, step 2: plain commands ("register here with test values") become pipe verbs; box 1's model takes what it can't do | data + training |
