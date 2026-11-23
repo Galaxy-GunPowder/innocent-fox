@@ -209,6 +209,7 @@ This repo keeps only the open hooks (sidebar slot, pipe verbs). Adorea's own cod
 
 | # | Item | How |
 |---|---|---|
+| 11.0 | Two downloads from one build: Innocent Fox, and Innocent Fox with Adorea (same browser plus one closed Adorea pack). A public hook loads the pack only if it is present and signed with our key | browser + scripts |
 | 11.1 | Adorea panel in the browser's own sidebar: sign in, profiles, Apply, Bulk; screens reused from the extension | browser chrome |
 | 11.2 | Driver on the pipe agent verbs (find, mouse, key, js, shot) in place of `chrome.scripting` and `chrome.debugger` | agent |
 | 11.3 | Command channel: `adorea` verbs on the agent pipe (apply, bulk, stop, status), so Python and any outside AI can run it | agent + launcher |
