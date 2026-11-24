@@ -38,6 +38,61 @@ _DEV = Path(r"D:\ifox\obj\dist\bin\firefox.exe")
 BROWSER = Path(os.environ.get("IFOX_BROWSER") or (_DEV if _DEV.exists() else INSTALLED))
 PROFILES = pf.ROOT
 
+# Upload: for one file dialog, the browser's file picker is one that answers with the given
+# files at once, then the stock picker is back. It lives in the main process (the content
+# process asks it for files), so pages never see it. Kept on the chrome window between calls.
+PICKER_ARM_JS = r"""
+const [paths] = args;
+const Ci = Components.interfaces, Cc = Components.classes;
+const reg = Components.manager.QueryInterface(Ci.nsIComponentRegistrar);
+const CONTRACT = "@mozilla.org/filepicker;1";
+if (win.__ifoxPicker) win.__ifoxPicker.restore();
+const stock = reg.contractIDToCID(CONTRACT);
+const mine = Components.ID(Services.uuid.generateUUID().toString());
+const files = paths.map(p => { const f = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
+                               f.initWithPath(p); return f; });
+const qi = (names) => function (iid) {
+  for (const n of names) if (iid.equals(Ci[n])) return this;
+  throw Components.Exception("", Components.results.NS_ERROR_NO_INTERFACE);
+};
+const state = {
+  restore() {
+    try { reg.unregisterFactory(mine, factory); } catch (e) {}
+    reg.registerFactory(stock, "", CONTRACT, null);
+    if (win.__ifoxPicker === state) win.__ifoxPicker = null;
+  },
+};
+const picker = {
+  QueryInterface: qi(["nsIFilePicker", "nsISupports"]),
+  mode: 0, defaultString: "", defaultExtension: "", filterIndex: 0, displayDirectory: null,
+  displaySpecialDirectory: "", addToRecentDocs: false, okButtonLabel: "", capture: 0,
+  init(ctx, title, mode) { this.mode = mode; },
+  appendFilter() {}, appendFilters() {}, appendRawFilter() {},
+  isModeSupported() { return true; },
+  get file() { return files[0]; },
+  get fileURL() { return Services.io.newFileURI(files[0]); },
+  get files() {
+    let i = 0;
+    return { QueryInterface: qi(["nsISimpleEnumerator", "nsISupports"]),
+             hasMoreElements: () => i < files.length, getNext: () => files[i++],
+             [Symbol.iterator]: function* () { yield* files; } };
+  },
+  get domFileOrDirectory() { return null; },
+  get domFileOrDirectoryEnumerator() { return null; },
+  open(cb) {
+    state.restore();
+    Services.tm.dispatchToMainThread(() => cb.done(Ci.nsIFilePicker.returnOK));
+  },
+  close() {},
+};
+const factory = { QueryInterface: qi(["nsIFactory", "nsISupports"]),
+                  createInstance(iid) { return picker.QueryInterface(iid); } };
+reg.registerFactory(mine, "ifox upload", CONTRACT, factory);
+win.__ifoxPicker = state;
+return true;
+"""
+PICKER_DISARM_JS = "if (win.__ifoxPicker) win.__ifoxPicker.restore(); return true;"
+
 # Profile housekeeping only: none of these change what a page can see.
 QUIET = {
     "browser.shell.checkDefaultBrowser": False,
@@ -501,27 +556,44 @@ class Tab:
         """Finds the element and wheels it into view like a person would."""
         self._front()
         el = self.find(sel, timeout)
-        for _ in range(80):
+        stuck = uncover = 0
+        for _ in range(400):
+            v = el["view"]
+            below = el["y"] + el["h"] / 2 > v["y"] + v["h"] / 2
             if el["inView"]:
                 # Smooth scrolling or a layout shift may still be moving it.
                 time.sleep(self.b.rng.uniform(0.08, 0.15))
                 again = self.find(sel, timeout)
-                if again["inView"] and abs(again["x"] - el["x"]) < 0.5 and abs(again["y"] - el["y"]) < 0.5:
+                if not (again["inView"] and abs(again["x"] - el["x"]) < 0.5 and abs(again["y"] - el["y"]) < 0.5):
+                    el = again
+                    continue
+                if not again.get("covered") or uncover >= 6:
                     return again
-                el = again
+                # In view but under a sticky bar or banner: a person scrolls it clear, toward the middle.
+                uncover += 1
+                mx, my = self.b._mouse or (v["x"] + v["w"] / 2, v["y"] + v["h"] / 2)
+                self.b.call("wheel", tab=self.id, x=mx, y=my, dy=1 if below else -1)
+                time.sleep(self.b.rng.uniform(0.15, 0.3))
+                el = self.find(sel, timeout)
                 continue
-            v = el["view"]
-            below = el["y"] + el["h"] / 2 > v["y"] + v["h"] / 2
             x = human.clip(el["x"] + el["w"] / 2, v["x"] + 20, v["x"] + v["w"] - 20)
             y = v["y"] + v["h"] * self.b.rng.uniform(0.35, 0.65)
             if self.b._mouse is None or abs(self.b._mouse[0] - x) > 200:
                 self.b.move(x, y, self.id)
             mx, my = self.b._mouse
-            for _ in range(self.b.rng.randint(1, 3)):
+            # Far away, a person flicks the wheel in long bursts; near, a tick or two.
+            far = abs(el["y"] + el["h"] / 2 - (v["y"] + v["h"] / 2)) / max(v["h"], 1)
+            ticks = self.b.rng.randint(6, 10) if far > 3 else self.b.rng.randint(3, 5) if far > 1 else \
+                self.b.rng.randint(1, 3)
+            for _ in range(ticks):
                 self.b.call("wheel", tab=self.id, x=mx, y=my, dy=1 if below else -1)
-                time.sleep(self.b.rng.uniform(0.04, 0.12))
+                time.sleep(self.b.rng.uniform(0.02, 0.06) if far > 1 else self.b.rng.uniform(0.04, 0.12))
             time.sleep(self.b.rng.uniform(0.1, 0.3))
+            before = el["y"]
             el = self.find(sel, timeout)
+            stuck = stuck + 1 if abs(el["y"] - before) < 0.5 else 0
+            if stuck >= 8:                     # the page no longer moves: the end, or a locked page
+                break
         raise IfoxError(f"could not scroll to {sel}")
 
     def hover(self, sel, timeout=10):
@@ -540,6 +612,27 @@ class Tab:
             if n < clicks:
                 time.sleep(self.b.rng.uniform(0.06, 0.12))
         return el
+
+    def upload(self, sel, paths, timeout=10):
+        """Chooses files for a file input the way a person does: clicks `sel` (the input, or the
+        button that opens it), and the file dialog answers with `paths` at once. The page gets an
+        ordinary user choice (the browser reads the file, change and input events fire).
+        Raises IfoxError if no file dialog opened."""
+        paths = [str(Path(p).resolve()) for p in ([paths] if isinstance(paths, (str, Path)) else paths)]
+        for p in paths:
+            if not Path(p).is_file():
+                raise IfoxError(f"upload: no file {p}")
+        self.b.call("chrome", code=PICKER_ARM_JS, args=[paths])
+        try:
+            self.click(sel, timeout)
+            end = time.time() + timeout
+            while time.time() < end:
+                if not self.b.call("chrome", code="return !!win.__ifoxPicker;"):
+                    return paths
+                time.sleep(0.2)
+            raise IfoxError(f"upload: clicking {sel} opened no file dialog")
+        finally:
+            self.b.call("chrome", code=PICKER_DISARM_JS)
 
     def press(self, combo):
         """A key or chord: "Enter", "Tab", "Control+a", "Shift+Tab"."""
