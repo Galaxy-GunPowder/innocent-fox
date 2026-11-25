@@ -228,7 +228,7 @@ Each item is measured before and after, and the identity lab must still show 0 d
 | # | Item | How |
 |---|---|---|
 | 12.1 | Measure first: memory per open profile, start time, page load time, against official Firefox 160 on the same PC | tests |
-| 12.2 | Build like official: PGO and LTO, which official Firefox ships with. Ours has neither, so pages run slower here, and a timing test could see it | build |
+| 12.2 | Build like official: PGO and LTO, two compiler steps official Firefox uses to make the same code run faster. Ours has neither. Speed only: every value a page reads is already the same | build |
 | 12.3 | No spare content process waiting in the background (`dom.ipc.processPrelaunch`); one less process per window, never seen by a page | prefs |
 | 12.4 | Smaller memory and disk caches for the default profile, which is deleted on close anyway | prefs |
 | 12.5 | Firefox's local AI models, sync, and new-tab feeds never load in a driven window | prefs |
