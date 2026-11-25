@@ -217,3 +217,32 @@ This repo keeps only the open hooks (sidebar slot, pipe verbs). Adorea's own cod
 | 11.5 | Page reader: the browser's own view of a page (controls, labels, layout, screenshot) as one compact input for a model | agent |
 | 11.6 | Tiny model, step 1: name each form field (email, first name, salary...) from the page reader; trained on box 1 turn logs | data + training |
 | 11.7 | Tiny model, step 2: plain commands ("register here with test values") become pipe verbs; box 1's model takes what it can't do | data + training |
+
+## 12. Planned: speed and typing (from 2026-11-25)
+
+The rule for every item: nothing a page can see or measure may change. A change that saves memory but shows to a page is dropped.
+Each item is measured before and after, and the identity lab must still show 0 differences.
+
+### Lighter and faster
+
+| # | Item | How |
+|---|---|---|
+| 12.1 | Measure first: memory per open profile, start time, page load time, against official Firefox 160 on the same PC | tests |
+| 12.2 | Build like official: PGO and LTO, which official Firefox ships with. Ours has neither, so pages run slower here, and a timing test could see it | build |
+| 12.3 | No spare content process waiting in the background (`dom.ipc.processPrelaunch`); one less process per window, never seen by a page | prefs |
+| 12.4 | Smaller memory and disk caches for the default profile, which is deleted on close anyway | prefs |
+| 12.5 | Firefox's local AI models, sync, and new-tab feeds never load in a driven window | prefs |
+| 12.6 | Kept on purpose: the back-forward cache, JIT, workers, WebGL and fonts. Pages can tell when these are off | none |
+
+### Typing
+
+`tab.type()` already types any sentence or paragraph with real key presses, about 5 letters a second, in a random rhythm.
+These items add choice, so a script doesn't have to time keys itself.
+
+| # | Item | How |
+|---|---|---|
+| 12.7 | Speed per profile: each saved profile keeps its own typing speed and rhythm, like a real person | profile |
+| 12.8 | `speed=` to set it for one call, from slow to fast, and `speed="instant"` for long text where timing doesn't matter | python |
+| 12.9 | Word rhythm: short pauses between words, longer ones after commas and sentences, quicker runs on common letter pairs | python |
+| 12.10 | `mistakes=`: a share of typos, each fixed with Backspace, as people do | python |
+| 12.11 | `paste=True`: puts the text on the clipboard and presses Control+V, as people do with long text | python |
