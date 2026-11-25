@@ -1,0 +1,29 @@
+<!doctype html><meta charset=utf-8><title>bench</title><body><div id=box></div>
+<script>
+// Pure work, the same in every browser: JavaScript, JSON, DOM and layout, regex, sort, strings.
+const tasks = {
+  js_primes() { const n = 3e6, s = new Uint8Array(n + 1); let c = 0;
+    for (let i = 2; i <= n; i++) { if (!s[i]) { c++; for (let j = i * 2; j <= n; j += i) s[j] = 1; } } return c; },
+  json() { const a = []; for (let i = 0; i < 150000; i++) a.push({id: i, name: "item" + i, tags: ["a", "b"], v: i / 3});
+    return JSON.parse(JSON.stringify(a)).length; },
+  dom_layout() { const box = document.getElementById("box"); const f = document.createDocumentFragment();
+    for (let i = 0; i < 20000; i++) { const d = document.createElement("div"); d.textContent = "row " + i; d.style.padding = (i % 7) + "px"; f.appendChild(d); }
+    box.appendChild(f); const h = box.offsetHeight; box.textContent = ""; return h; },
+  regex() { const s = "abc123 def456 ghi789 ".repeat(100000); return (s.match(/[a-z]+\d+/g) || []).length; },
+  sort() { const a = new Float64Array(1e6); for (let i = 0; i < a.length; i++) a[i] = Math.sin(i) * 1e6; a.sort(); return a[0]; },
+  strings() { let s = ""; for (let i = 0; i < 300000; i++) s += String.fromCharCode(97 + i % 26); return s.split("a").length; },
+};
+const median = a => a.slice().sort((x, y) => x - y)[a.length >> 1];
+setTimeout(async () => {
+  const out = {};
+  for (const [name, fn] of Object.entries(tasks)) {
+    fn();                                   // warm up
+    const t = [];
+    for (let k = 0; k < 5; k++) { const t0 = performance.now(); fn(); t.push(performance.now() - t0); await new Promise(r => setTimeout(r, 20)); }
+    out[name] = median(t);
+  }
+  out.total = Object.values(out).reduce((a, b) => a + b, 0);
+  await fetch("/result", {method: "POST", body: JSON.stringify(out)});
+  document.title = "done";
+}, 1500);
+</script>

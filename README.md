@@ -33,7 +33,7 @@ Each profile can be Firefox 158, 159 or 160, identical to the official release i
   - Python drives the browser through a private pipe, so pages can't find it
   - Your scripts run in a sandbox the page can't see
   - Mouse, keys and scrolling move like a person's, through the real input path
-  - One call types a whole paragraph, key by key
+  - One call types a whole paragraph, key by key, at each profile's own speed, typos optional
   - File uploads skip the file dialog, and the page still sees a normal choice
   - Selectors reach into other sites' frames and into shadow DOM
 - Identity
@@ -288,8 +288,8 @@ with Browser(p) as b:
 
 ### Typing like a person
 
-One call types a whole sentence or paragraph with real key presses, about 5 letters a second, never the same rhythm twice.
-No JavaScript writes into the field, so the page sees a person typing.
+One call types a whole sentence or paragraph with real key presses. No JavaScript writes into the field, so the page sees a person typing.
+Each saved profile has its own typing speed, between 30 and 85 words a minute, and keeps it every run. Words, commas and full stops get their own pauses.
 
 ```python
 tab.type("textarea", "Hello.
@@ -297,6 +297,10 @@ This is a second line.")   #
  presses Enter
 tab.type("input[name=q]", "new words", clear=True)        # empty the field first
 tab.type(None, "more")                                     # type where the cursor already is
+tab.type("#bio", text, speed=40)                           # 40 words a minute, this call only
+tab.type("#bio", text, speed="instant")                    # no pauses, for long text
+tab.type("#bio", text, mistakes=0.03)                      # 3% typos, each fixed with Backspace
+tab.type("#bio", text, paste=True)                         # Control+V; your clipboard's text comes back after
 ```
 
 ### Every call
@@ -306,7 +310,7 @@ tab.type(None, "more")                                     # type where the curs
 | `b.open(url)` | opens a tab at the address; gives back the tab |
 | `tab.goto(url)`, `tab.back()`, `tab.reload()` | moves the tab like the address bar and buttons |
 | `tab.click(sel)` | moves the mouse there like a hand, then clicks |
-| `tab.type(sel, text)` | clicks the field, then types the text key by key |
+| `tab.type(sel, text)` | clicks the field, then types the text key by key; `speed=`, `mistakes=`, `paste=` |
 | `tab.press("Enter")` | presses a key or keys together, such as `"Control+a"` |
 | `tab.hover(sel)` | moves the mouse over it without clicking |
 | `tab.upload(sel, "C:\cv.pdf")` | chooses a file for a file button, as a person picks one (next release) |

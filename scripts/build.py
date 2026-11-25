@@ -15,6 +15,10 @@ from common import MOZILLABUILD, OBJ, SRC
 # 8 jobs: 12 threads would run 16 GB RAM out while Rust crates and libxul link.
 JOBS = 8
 
+# Like official Firefox: PGO (build, train on real pages, build again) and LTO across C++ and Rust.
+# Pages run faster; nothing a page reads changes. IFOX_FAST=1 skips both for quick dev rebuilds.
+PGO = "" if os.environ.get("IFOX_FAST") else "ac_add_options MOZ_PGO=1\nac_add_options --enable-lto=cross\n"
+
 MOZCONFIG = f"""\
 ac_add_options --enable-application=browser
 mk_add_options MOZ_OBJDIR={OBJ.as_posix()}
@@ -24,7 +28,7 @@ mk_add_options MOZ_PARALLEL_BUILD={JOBS}
 ac_add_options --enable-release
 ac_add_options --enable-optimize
 ac_add_options --disable-debug
-ac_add_options --enable-update-channel=release
+{PGO}ac_add_options --enable-update-channel=release
 
 # Download clang, rust, nasm, node, the Windows SDK into ~/.mozbuild.
 ac_add_options --enable-bootstrap

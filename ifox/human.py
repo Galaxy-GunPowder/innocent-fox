@@ -63,3 +63,56 @@ def keys_for(ch):
     if ch in SPECIAL:
         return SPECIAL[ch], False
     return ch, ch in SHIFTED
+
+
+# ---------------------------------------------------------------- typing
+
+# Letter pairs typed in one quick roll, from English text.
+QUICK_PAIRS = set("th he in er an re on at en nd ti es or te of ed is it al ar st to nt ng se ha as ou io le "
+                  "ve co me de hi ri ro ic ne ea ra ce li ch ll be ma si om ur".split())
+# Keys next to each key on a US keyboard, for typos.
+_ROWS = ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
+NEIGHBOURS = {}
+for _r, _row in enumerate(_ROWS):
+    for _c, _k in enumerate(_row):
+        near = [_row[i] for i in (_c - 1, _c + 1) if 0 <= i < len(_row)]
+        for _dr in (-1, 1):
+            if 0 <= _r + _dr < len(_ROWS):
+                other = _ROWS[_r + _dr]
+                near += [other[i] for i in (_c - 1, _c, _c + 1) if 0 <= i < len(other)]
+        NEIGHBOURS[_k] = near
+
+
+class Typist:
+    """One person's typing: speed and rhythm. A key (a profile's seed) gives the same person every
+    run; no key gives a new one."""
+
+    def __init__(self, key=None):
+        r = random.Random(None if key is None else f"typist:{key}")
+        self.wpm = round(clip(r.gauss(52, 11), 30, 85))     # words a minute, a word being 5 letters
+        self.hold = clip(r.gauss(0.085, 0.012), 0.06, 0.12)   # how long a key stays down
+        self.roll = r.uniform(0.6, 0.85)                      # common pairs, this much quicker
+        self.pause = r.uniform(0.01, 0.04)                    # chance of a short think before a word
+
+    def __repr__(self):
+        return f"<Typist {self.wpm} wpm>"
+
+    def hold_time(self, rng):
+        return clip(rng.gauss(self.hold, 0.02), 0.03, 0.2)
+
+    def gap(self, prev, ch, rng, wpm=None):
+        """Pause after `prev` and before `ch`."""
+        per_key = 60 / ((wpm or self.wpm) * 5)                # seconds per letter, key held included
+        base = max(per_key - self.hold, 0.02)
+        g = rng.lognormvariate(math.log(base), 0.35)
+        if prev in ".!?\n":
+            g *= rng.uniform(2.5, 5)                          # end of a sentence or line
+        elif prev in ",;:":
+            g *= rng.uniform(1.8, 3)
+        elif prev == " ":
+            g *= rng.uniform(1.0, 1.5)                        # start of a word
+            if rng.random() < self.pause:
+                g += rng.uniform(0.3, 1.0)
+        elif (prev + ch).lower() in QUICK_PAIRS:
+            g *= self.roll
+        return clip(g, 0.015, 3.0)

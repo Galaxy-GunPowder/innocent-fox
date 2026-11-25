@@ -91,7 +91,25 @@ reg.registerFactory(mine, "ifox upload", CONTRACT, factory);
 win.__ifoxPicker = state;
 return true;
 """
-PICKER_DISARM_JS = "if (win.__ifoxPicker) win.__ifoxPicker.restore(); return true;"
+# Paste: the system clipboard's text is swapped for ours, and swapped back after Control+V.
+CLIPBOARD_SWAP_JS = r"""
+const [text] = args;
+const Ci = Components.interfaces, Cc = Components.classes, cb = Services.clipboard;
+let old = null;
+try {
+  const t = Cc["@mozilla.org/widget/transferable;1"].createInstance(Ci.nsITransferable);
+  t.init(null);
+  t.addDataFlavor("text/plain");
+  cb.getData(t, cb.kGlobalClipboard);
+  const out = {};
+  t.getTransferData("text/plain", out);
+  old = out.value.QueryInterface(Ci.nsISupportsString).data;
+} catch (e) {}
+if (text === null) cb.emptyClipboard(cb.kGlobalClipboard);
+else Cc["@mozilla.org/widget/clipboardhelper;1"].getService(Ci.nsIClipboardHelper).copyString(text);
+return old;
+"""
+PICKER_DISARM_JS ="if (win.__ifoxPicker) win.__ifoxPicker.restore(); return true;"
 
 # Profile housekeeping only: none of these change what a page can see.
 QUIET = {
@@ -144,6 +162,18 @@ QUIET = {
 # A driven window is often behind other windows. Firefox then reports the page
 # hidden and unfocused, and a page that gets typing while hidden and unfocused
 # has no real user. These stock prefs make it behave as the front window.
+# Lighter and faster, where no page can tell (build list 12.3 to 12.5). Kept on purpose, since
+# pages can tell: the back-forward cache, JIT, workers, WebGL, fonts, prefetching.
+PERF = {
+    "dom.ipc.processPrelaunch.enabled": False,      # no spare content process kept running
+    "browser.newtab.preload": False,                # no hidden new-tab page loaded ahead
+    "browser.ml.enable": False,                     # Firefox's local AI models
+    "browser.ml.chat.enabled": False,
+    "browser.ml.linkPreview.enabled": False,
+    "browser.tabs.groups.smart.enabled": False,
+    "browser.translations.automaticallyPopup": False,
+}
+
 FRONT = {
     "focusmanager.testmode": True,
     "widget.windows.window_occlusion_tracking.enabled": False,
@@ -257,9 +287,10 @@ class Browser:
         except ValueError as e:
             raise IfoxError(str(e)) from None
         p.fingerprint.user_agent = fp.user_agent(self.shows)
+        self.typist = human.Typist(p.fingerprint.seed)      # this profile's typing, the same every run
         fingerprint = None if stock else p.fingerprint
         page = versions.merge(fp.prefs(fingerprint, hidden) if fingerprint else {}, shown)
-        all_prefs = {**QUIET, **(FRONT if front else {}), **page,
+        all_prefs = {**QUIET, **PERF, **(FRONT if front else {}), **page,
                      **(proxy_prefs(proxy) if proxy else {}), **s["prefs"]}
         # Rewritten on every start, so a pref changed in the code reaches old profiles too.
         (self.folder / "user.js").write_text(_user_js(all_prefs), encoding="utf-8")
@@ -656,29 +687,59 @@ class Tab:
             time.sleep(self.b.rng.uniform(0.02, 0.06))
             self.b.call("key", tab=self.id, key=m, type="up")
 
-    def type(self, sel, text, clear=False, timeout=10):
-        """Clicks the field (sel=None: whatever has focus), then types like a person."""
+    def type(self, sel, text, clear=False, timeout=10, speed=None, mistakes=0.0, paste=False):
+        """Clicks the field (sel=None: whatever has focus), then types `text` like a person, key by key.
+
+        speed     None: this profile's own speed (the same every run of a saved profile);
+                  a number: words a minute, such as 40 or 90; "instant": no pauses at all
+        mistakes  share of letters typed wrong and fixed with Backspace, such as 0.03
+        paste     True: put the text on the clipboard and press Control+V, as people do with
+                  long text. Your clipboard's text comes back afterwards.
+        """
+        rng = self.b.rng
         if sel is not None:
             self.click(sel, timeout)
-            time.sleep(self.b.rng.uniform(0.15, 0.4))
+            time.sleep(rng.uniform(0.15, 0.4))
         else:
             self._front()
         if clear:
             self.press("Control+a")
-            time.sleep(self.b.rng.uniform(0.05, 0.15))
+            time.sleep(rng.uniform(0.05, 0.15))
             self.press("Backspace")
-        for ch in text:
-            key, shift = human.keys_for(ch)
-            if shift:
-                self.b.call("key", tab=self.id, key="Shift", type="down")
-                time.sleep(self.b.rng.uniform(0.03, 0.09))
-            self.b.call("key", tab=self.id, key=key, type="down")
-            time.sleep(human.press_time(self.b.rng))
-            self.b.call("key", tab=self.id, key=key, type="up")
-            if shift:
-                time.sleep(self.b.rng.uniform(0.01, 0.05))
-                self.b.call("key", tab=self.id, key="Shift", type="up")
-            time.sleep(human.key_gap(self.b.rng))
+        if paste:
+            old = self.b.call("chrome", code=CLIPBOARD_SWAP_JS, args=[text])
+            try:
+                time.sleep(rng.uniform(0.2, 0.5))
+                self.press("Control+v")
+                time.sleep(0.3)
+            finally:
+                self.b.call("chrome", code=CLIPBOARD_SWAP_JS, args=[old])
+            return
+        typist, instant = self.b.typist, speed == "instant"
+        wpm = speed if isinstance(speed, (int, float)) else None
+        for i, ch in enumerate(text):
+            if mistakes and ch.lower() in human.NEIGHBOURS and rng.random() < mistakes:
+                self._key(rng.choice(human.NEIGHBOURS[ch.lower()]), instant)   # the wrong key
+                time.sleep(0 if instant else rng.uniform(0.15, 0.45))           # noticing it
+                self._key("\b", instant)
+                time.sleep(0 if instant else typist.gap("", ch, rng, wpm))
+            self._key(ch, instant)
+            if not instant and i + 1 < len(text):
+                time.sleep(typist.gap(ch, text[i + 1], rng, wpm))
+
+    def _key(self, ch, instant=False):
+        """One character as key presses: Shift when needed, the key down, held, up."""
+        rng = self.b.rng
+        key, shift = ("Backspace", False) if ch == "\b" else human.keys_for(ch)
+        if shift:
+            self.b.call("key", tab=self.id, key="Shift", type="down")
+            time.sleep(0 if instant else rng.uniform(0.03, 0.09))
+        self.b.call("key", tab=self.id, key=key, type="down")
+        time.sleep(0.005 if instant else self.b.typist.hold_time(rng))
+        self.b.call("key", tab=self.id, key=key, type="up")
+        if shift:
+            time.sleep(0 if instant else rng.uniform(0.01, 0.05))
+            self.b.call("key", tab=self.id, key="Shift", type="up")
 
 
 SEEN_JS = """

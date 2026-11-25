@@ -229,11 +229,11 @@ Each item is measured before and after, and the identity lab must still show 0 d
 
 | # | Item | How |
 |---|---|---|
-| 12.1 | Measure first: memory per open profile, start time, page load time, against official Firefox 160 on the same PC | tests |
+| 12.1 | Measure first: memory per open profile, start time, page load time, against official Firefox 160 on the same PC | tests/perf/bench.py: 412 ms official, 556 ms ours, 888 MB and 699 MB |
 | 12.2 | Build like official: PGO and LTO, two compiler steps official Firefox uses to make the same code run faster. Ours has neither. Speed only: every value a page reads is already the same | build |
-| 12.3 | No spare content process waiting in the background (`dom.ipc.processPrelaunch`); one less process per window, never seen by a page | prefs |
-| 12.4 | Smaller memory and disk caches for the default profile, which is deleted on close anyway | prefs |
-| 12.5 | Firefox's local AI models, sync, and new-tab feeds never load in a driven window | prefs |
+| 12.3 | No spare content process waiting in the background (`dom.ipc.processPrelaunch`); one less process per window, never seen by a page | done, `PERF` in the launcher; identity lab check after the 12.2 build |
+| 12.4 | Smaller memory and disk caches for the default profile, which is deleted on close anyway | not tried yet: 12.3 and 12.5 already cut 38 MB and 3 processes |
+| 12.5 | Firefox's local AI models, sync, and new-tab feeds never load in a driven window | done, `PERF` in the launcher; identity lab check after the 12.2 build |
 | 12.6 | Kept on purpose: the back-forward cache, JIT, workers, WebGL and fonts. Pages can tell when these are off | none |
 
 ### Typing
@@ -243,8 +243,8 @@ These items add choice, so a script doesn't have to time keys itself.
 
 | # | Item | How |
 |---|---|---|
-| 12.7 | Speed per profile: each saved profile keeps its own typing speed and rhythm, like a real person | profile |
-| 12.8 | `speed=` to set it for one call, from slow to fast, and `speed="instant"` for long text where timing doesn't matter | python |
-| 12.9 | Word rhythm: short pauses between words, longer ones after commas and sentences, quicker runs on common letter pairs | python |
-| 12.10 | `mistakes=`: a share of typos, each fixed with Backspace, as people do | python |
-| 12.11 | `paste=True`: puts the text on the clipboard and presses Control+V, as people do with long text | python |
+| 12.7 | Speed per profile: each saved profile keeps its own typing speed and rhythm, like a real person | done, `human.Typist` from the profile's seed |
+| 12.8 | `speed=` to set it for one call, from slow to fast, and `speed="instant"` for long text where timing doesn't matter | done |
+| 12.9 | Word rhythm: short pauses between words, longer ones after commas and sentences, quicker runs on common letter pairs | done |
+| 12.10 | `mistakes=`: a share of typos, each fixed with Backspace, as people do | done |
+| 12.11 | `paste=True`: puts the text on the clipboard and presses Control+V, as people do with long text | done; the clipboard's text is put back |
