@@ -230,10 +230,10 @@ Each item is measured before and after, and the identity lab must still show 0 d
 | # | Item | How |
 |---|---|---|
 | 12.1 | Measure first: memory per open profile, start time, page load time, against official Firefox 160 on the same PC | tests/perf/bench.py: 412 ms official, 556 ms ours, 888 MB and 699 MB |
-| 12.2 | Build like official: PGO and LTO, two compiler steps official Firefox uses to make the same code run faster. Ours has neither. Speed only: every value a page reads is already the same | build |
-| 12.3 | No spare content process waiting in the background (`dom.ipc.processPrelaunch`); one less process per window, never seen by a page | done, `PERF` in the launcher; identity lab check after the 12.2 build |
+| 12.2 | Build like official: PGO and LTO, two compiler steps official Firefox uses to make the same code run faster. Speed only: every value a page reads is already the same | done: 556 ms before, 365 ms after, official 400 ms (bench.py, median of 3). LTO is C++ only: Rust 1.100's LLVM 23 can't link with clang's LLVM 22 |
+| 12.3 | No spare content process waiting in the background (`dom.ipc.processPrelaunch`); one less process per window, never seen by a page | done, `PERF` in the launcher; identity lab 0 differences (2 runs each); focus checks still to rerun with the PC idle |
 | 12.4 | Smaller memory and disk caches for the default profile, which is deleted on close anyway | not tried yet: 12.3 and 12.5 already cut 38 MB and 3 processes |
-| 12.5 | Firefox's local AI models, sync, and new-tab feeds never load in a driven window | done, `PERF` in the launcher; identity lab check after the 12.2 build |
+| 12.5 | Firefox's local AI models, sync, and new-tab feeds never load in a driven window | done, `PERF` in the launcher; identity lab 0 differences (2 runs each); focus checks still to rerun with the PC idle |
 | 12.6 | Kept on purpose: the back-forward cache, JIT, workers, WebGL and fonts. Pages can tell when these are off | none |
 
 ### Typing

@@ -15,9 +15,12 @@ from common import MOZILLABUILD, OBJ, SRC
 # 8 jobs: 12 threads would run 16 GB RAM out while Rust crates and libxul link.
 JOBS = 8
 
-# Like official Firefox: PGO (build, train on real pages, build again) and LTO across C++ and Rust.
-# Pages run faster; nothing a page reads changes. IFOX_FAST=1 skips both for quick dev rebuilds.
-PGO = "" if os.environ.get("IFOX_FAST") else "ac_add_options MOZ_PGO=1\nac_add_options --enable-lto=cross\n"
+# PGO (build, train on real pages, build again) and LTO, like official Firefox. Pages run faster;
+# nothing a page reads changes. IFOX_FAST=1 skips both for quick dev rebuilds.
+# LTO is C++ only ("thin"): "cross" also feeds Rust in, which needs rustc's LLVM to match
+# clang's. Rust 1.100 is LLVM 23 and the bootstrapped clang is 22, so the link failed
+# ("Not an int attribute", 2026-11-25).
+PGO = "" if os.environ.get("IFOX_FAST") else "ac_add_options MOZ_PGO=1\nac_add_options --enable-lto=thin\n"
 
 MOZCONFIG = f"""\
 ac_add_options --enable-application=browser
