@@ -67,7 +67,7 @@ All you need is a Windows 10 or 11 PC (64-bit) and Python. The browser itself in
 2. Open PowerShell and install Innocent Fox:
 
    ```
-   pip install https://github.com/Galaxy-GunPowder/innocent-fox/releases/download/v0.2.2/innocent_fox-0.2.2-py3-none-any.whl
+   pip install https://github.com/Galaxy-GunPowder/innocent-fox/releases/download/v0.2.3/innocent_fox-0.2.3-py3-none-any.whl
    ```
 
 3. Save this as `start.py`:
