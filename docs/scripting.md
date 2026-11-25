@@ -1,5 +1,7 @@
 # Scripting Innocent Fox
 
+Start with the examples in the README: [Scripting](../README.md#scripting). This page lists every setting.
+
 Python drives the browser over a private pipe. Pages can't see it.
 
 ## Start
@@ -77,8 +79,9 @@ The browser ends with your script, however it ends: finished, error, Ctrl+C, win
 |---|---|
 | `b.open(url)` | page in a new tab (first call reuses the blank start tab) |
 | `tab.goto(url)`, `back()`, `reload()` | navigate; `LoadError` if the page fails (host not found, refused) |
-| `tab.find(sel)`, `wait(sel)`, `exists(sel)`, `text(sel)` | elements; `wait` raises after `timeout` seconds if it never appears |
+| `tab.find(sel)`, `wait(sel)`, `exists(sel)`, `text(sel)` | elements (`text` is the whole text); `wait` raises after `timeout` seconds if it never appears |
 | `tab.click(sel)`, `hover(sel)`, `type(sel, text)`, `press("Control+a")` | input like a person, through the OS input path |
+| `tab.upload(sel, paths)` | picks files for a file input, or the button that opens one; the file dialog answers at once and the page sees a normal choice |
 | `tab.frame("iframe#pay")` | the same calls inside an iframe, cross-site too |
 | `tab.js("return document.title")` | run JS in a private sandbox the page can't see |
 | `tab.check()` | what the page sees next to the profile, value by value; `.ok` is False on any difference |

@@ -488,7 +488,15 @@ class Tab:
         return self.find(sel, wait=False)["found"]
 
     def text(self, sel, timeout=10):
-        return self.find(sel, timeout)["text"]
+        """The element's whole visible text."""
+        t = self.find(sel, timeout)["text"]
+        if len(t) >= 300 and " >> " not in sel and not sel.startswith("text="):
+            # find() keeps 300 characters; read the rest from the sandbox.
+            full = self.js("const e = document.querySelector(arguments[0]);"
+                           "return e ? (e.innerText ?? e.textContent ?? '').trim() : null;", sel)
+            if full:
+                return full
+        return t
 
     def js(self, code, *args):
         """Runs code as a function body in a private scope over the page.

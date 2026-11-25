@@ -29,6 +29,7 @@ Each profile can be Firefox 158, 159 or 160, identical to the official release i
 
 - [Test results](#test-results)
 - [How to use](#how-to-use)
+- [Scripting](#scripting)
 - [Features](#features)
 - [Build it yourself](#build-it-yourself)
 - [License](#license)
@@ -86,7 +87,7 @@ All you need is a Windows 10 or 11 PC (64-bit) and Python. The browser itself in
    ```
 
 The first run downloads the browser (130 MB) and checks it; after that it starts in about 2 seconds.
-The sections below show what to put in your script.
+[Scripting](#scripting) shows what to put in your script.
 
 ### Manage profiles
 
@@ -139,32 +140,164 @@ with Browser(version="158", device="i5-1135g7-laptop") as b: ...   # fix any set
 print(profile.default())                                        # what one use of it looks like
 ```
 
-### Browser automation
+# Scripting
+
+A script is a Python file. Each line does one thing a person would do: open a page, click, type, read.
+Every example here runs as it is: save it as a `.py` file and run `python yourfile.py`.
+
+### Your first script
+
+Search Wikipedia and print the start of the article.
 
 ```python
-from ifox import Browser, profile
+"""Search Wikipedia and print the first paragraph of the article."""
+from ifox import Browser
 
-# Script the browser with the default profile
-with Browser(proxy="https://user:pass@host:port") as b:   # the built-in default: new identity, nothing kept
-    b.open("https://example.com/").click("text=Sign in")  # human mouse path, real click
+with Browser() as b:                                   # start the browser (a new identity each run)
+    tab = b.open("https://en.wikipedia.org/")          # open a tab at this address
 
-# Or with a saved profile
-p = profile.get("myprofile", proxy="https://user:pass@host:port")   # first run creates it, later runs load it
+    tab.type("input[name=search]", "Red fox")          # click the search box and type, like a person
+    tab.press("Enter")                                 # press the Enter key
 
-with Browser(p) as b:                            # same device, version and cookies every run
-    tab = b.open("https://example.com/login")
-    tab.type("#email", "a@example.com")          # human typing rhythm
-    tab.press("Enter")
-    tab.wait("#account")                         # waits until it appears
-    print(tab.text("#account"))
-    tab.frame("iframe#login").click("text=Continue")   # the same calls inside a frame
-    print(tab.js("return document.title"))       # JavaScript the page can't see
-    tab.shot("page.png")
-    print(tab.check())                           # what the page sees, next to the profile
+    tab.wait("#firstHeading")                          # wait until the article title is on the page
+    print(tab.text("#firstHeading"))                   # the title's text
+    print(tab.text("#mw-content-text p:not(.mw-empty-elt)"))   # the first paragraph's text
 ```
 
-Save any of these as a `.py` file and run it with `python yourfile.py`, as in step 4 above.
-Every setting and call: [docs/scripting.md](docs/scripting.md).
+It prints:
+
+```
+Red fox
+The red fox (Vulpes vulpes) is the largest of the true foxes, ...
+```
+
+### Point at things on a page
+
+Every call that touches the page takes a selector: words that say which thing on the page you mean.
+
+| Selector | Means | Example |
+|---|---|---|
+| `#name` | the thing with this id | `tab.text("#firstHeading")` |
+| `tag[attr=value]` | a tag with this attribute | `tab.type("input[name=search]", "Red fox")` |
+| `text=Words` | the thing that shows these words | `tab.click("text=Submit order")` |
+| `a >> b` | b inside a: a frame or a shadow root | `tab.click("iframe#pay >> text=Pay")` |
+
+To find an id or name: right-click the thing in Firefox, choose Inspect, and read its line.
+
+### Waiting
+
+Pages load in pieces. `tab.wait(sel)` pauses until the thing is on the page, up to 10 seconds, then raises an error.
+After a click that changes the page, wait for something only the next page has. Text you just typed also counts as on the page.
+
+### Fill in a form
+
+```python
+"""Fill in a web form and send it. httpbin.org is a public test site that shows what it received."""
+import json
+from ifox import Browser
+
+with Browser() as b:
+    tab = b.open("https://httpbin.org/forms/post")
+
+    tab.type("input[name=custname]", "Alex Doe")             # a text box
+    tab.type("input[name=custtel]", "555-0100")
+    tab.type("input[name=custemail]", "alex@example.com")
+    tab.click("input[value=medium]")                          # a round option button: Medium
+    tab.click("input[value=cheese]")                          # a tick box: Cheese
+    tab.type("textarea[name=comments]", "Ring the bell twice.")
+    tab.click("text=Submit order")                            # the button, found by its words
+
+    tab.wait("text=Raw Data")              # wait for something only the next page has
+    tab.click("text=Raw Data")             # Firefox shows the reply in its JSON viewer; this tab is plain text
+    sent = json.loads(tab.text("pre"))
+    print(sent["form"])                    # just the form part
+```
+
+It prints what the site received:
+
+```
+{'comments': 'Ring the bell twice.', 'custemail': 'alex@example.com', 'custname': 'Alex Doe', 'custtel': '555-0100', 'delivery': '', 'size': 'medium', 'topping': 'cheese'}
+```
+
+### Save data from a page
+
+```python
+"""Save the top 10 Hacker News stories to a spreadsheet file (CSV)."""
+import csv
+from ifox import Browser
+
+with Browser() as b:
+    tab = b.open("https://news.ycombinator.com/")
+    tab.wait(".titleline")
+
+    # Read many things at once with JavaScript. It runs out of the page's sight.
+    stories = tab.js("""
+        return [...document.querySelectorAll(".titleline > a")]
+            .slice(0, 10)
+            .map(a => [a.textContent, a.href]);
+    """)
+
+with open("stories.csv", "w", newline="", encoding="utf-8") as f:
+    csv.writer(f).writerows([["title", "link"], *stories])
+print(f"saved {len(stories)} stories to stories.csv")
+```
+
+`stories.csv` opens in Excel: one row per story, with its title and link.
+
+### Stay signed in
+
+A saved profile keeps cookies, so you sign in by hand once and every later run is signed in.
+
+```python
+"""Sign in to a site by hand once. Every later run starts already signed in."""
+from ifox import Browser, profile
+
+p = profile.get("github")                        # first run makes a saved profile, later runs load it
+
+with Browser(p) as b:
+    tab = b.open("https://github.com/login")
+    if tab.exists("text=Sign in to GitHub"):     # the sign-in page: not signed in yet
+        print("Sign in in the browser window, then close the window.")
+        b.wait_closed()                           # cookies are saved when the window closes
+    else:
+        print("Already signed in.")               # the saved cookies did it
+```
+
+### Typing like a person
+
+One call types a whole sentence or paragraph with real key presses, about 5 letters a second, never the same rhythm twice.
+No JavaScript writes into the field, so the page sees a person typing.
+
+```python
+tab.type("textarea", "Hello.
+This is a second line.")   # 
+ presses Enter
+tab.type("input[name=q]", "new words", clear=True)        # empty the field first
+tab.type(None, "more")                                     # type where the cursor already is
+```
+
+### Every call
+
+| Call | Does |
+|---|---|
+| `b.open(url)` | opens a tab at the address; gives back the tab |
+| `tab.goto(url)`, `tab.back()`, `tab.reload()` | moves the tab like the address bar and buttons |
+| `tab.click(sel)` | moves the mouse there like a hand, then clicks |
+| `tab.type(sel, text)` | clicks the field, then types the text key by key |
+| `tab.press("Enter")` | presses a key or keys together, such as `"Control+a"` |
+| `tab.hover(sel)` | moves the mouse over it without clicking |
+| `tab.upload(sel, "C:\cv.pdf")` | chooses a file for a file button, as a person picks one (next release) |
+| `tab.wait(sel)` | waits until it is on the page |
+| `tab.exists(sel)` | True or False, right away |
+| `tab.text(sel)` | its words |
+| `tab.title`, `tab.url` | the page title and address |
+| `tab.js("return ...")` | runs JavaScript out of the page's sight, gives back the result |
+| `tab.frame(sel)` | the same calls inside a frame |
+| `tab.shot("page.png")` | saves a picture of the page |
+| `tab.check()` | what the page sees about this browser, next to the profile |
+| `b.wait_closed()` | keeps the script open until you close the window |
+
+Every setting and call in detail: [docs/scripting.md](docs/scripting.md).
 
 <br>
 
