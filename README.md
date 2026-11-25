@@ -14,8 +14,6 @@
   <img src="https://img.shields.io/badge/license-MPL_2.0-1d4e74" alt="MPL 2.0 license">
 </p>
 
-<p><a href="#introduction">Introduction</a> &nbsp;·&nbsp; <a href="#test-results">Test results</a> &nbsp;·&nbsp; <a href="#how-to-use">How to use</a> &nbsp;·&nbsp; <a href="#features">Features</a> &nbsp;·&nbsp; <a href="#license">License</a> &nbsp;·&nbsp; <a href="#special-thanks">Special thanks</a></p>
-
 </div>
 
 <br>
@@ -28,6 +26,13 @@ Each profile can be Firefox 158, 159 or 160, identical to the official release i
 **Design goals:** fully scriptable from Python, no automation traces, and every layer of an identity agrees.<br>
 **Changes:** 27 major changes for identity safety, in 13 patches. [Features](#features) · [Full list](docs/build-list.md)<br>
 **Test results:** 6/6 public bot checkers passed, and Firefox 158, 159 and 160 each show 0 differences from official. [All results](#test-results)
+
+- [Test results](#test-results)
+- [How to use](#how-to-use)
+- [Features](#features)
+- [Build it yourself](#build-it-yourself)
+- [License](#license)
+- [Special thanks](#special-thanks)
 
 <br>
 
@@ -161,17 +166,6 @@ with Browser(p) as b:                            # same device, version and cook
 Save any of these as a `.py` file and run it with `python yourfile.py`, as in step 4 above.
 Every setting and call: [docs/scripting.md](docs/scripting.md).
 
-### Build it yourself
-
-Only needed to change the browser itself. It takes about 90 minutes, in `D:\ifox`:
-
-```
-python scripts/fetch_source.py          # Firefox 160.0.1 source into D:\ifox\src
-python scripts/patchtool.py apply       # patches/*.patch, in order
-python scripts/build.py                 # build the browser
-python scripts/build.py package         # make the release zip
-```
-
 <br>
 
 # Features
@@ -195,6 +189,19 @@ python scripts/build.py package         # make the release zip
 | Install | The browser downloads itself on first use and closes when your script ends |
 
 Every change, with how it was made: [summary](docs/major-changes.md) · [full list](docs/build-list.md)
+
+<br>
+
+# Build it yourself
+
+Only needed to change the browser itself. It takes about 90 minutes, in `D:\ifox`:
+
+```
+python scripts/fetch_source.py          # Firefox 160.0.1 source into D:\ifox\src
+python scripts/patchtool.py apply       # patches/*.patch, in order
+python scripts/build.py                 # build the browser
+python scripts/build.py package         # make the release zip
+```
 
 <br>
 
