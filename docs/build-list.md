@@ -2,7 +2,7 @@
 
 Everything Innocent Fox needs, grouped by goal. We write all of it before the first long build.
 How: stock = Firefox already has a pref, patch = our C++/JS change, launcher = Python side, tunnel = Go helper.
-The README's [Major changes](../README.md#major-changes) is the summary of this list: when an item here is done and matters to users, it gets one line there.
+The README's [Major changes](../README.md#major-changes) picks the most advanced finished items from this list, one line each.
 
 ## 1. Programmable control (Python)
 
