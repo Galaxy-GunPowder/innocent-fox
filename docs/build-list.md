@@ -2,6 +2,7 @@
 
 Everything Innocent Fox needs, grouped by goal. We write all of it before the first long build.
 How: stock = Firefox already has a pref, patch = our C++/JS change, launcher = Python side, tunnel = Go helper.
+The README's [Major changes](../README.md#major-changes) is the summary of this list: when an item here is done and matters to users, it gets one line there.
 
 ## 1. Programmable control (Python)
 
@@ -21,9 +22,10 @@ Design: [control.md](control.md).
 | 1.9 | Request control: block, redirect, change headers, mock responses | patch |
 | 1.10 | API trace: log which fingerprint APIs each script URL reads, with the values returned | patch |
 | 1.11 | Our own page scripts run in an isolated world; the page can't see them | patch |
-| 1.12 | Trusted input: mouse paths, typing rhythm and scrolling like a person's | launcher |
+| 1.12 | Trusted input: mouse paths, typing rhythm and scrolling like a person's | done, `ifox/human.py` |
 | 1.13 | Change fingerprint values live, without a restart | patch, pref observers |
 | 1.14 | Several identities in one browser, one per container tab | patch, later stage |
+| 1.15 | File upload: one file dialog answers with the given files, from the parent process; the page sees a normal choice | done, `Tab.upload` |
 
 ## 2. Running hidden without headless leaks
 

@@ -24,13 +24,13 @@ Innocent Fox is an anti-detect, identity-safe, fully scriptable browser, built b
 Each profile can be Firefox 158, 159 or 160, identical to the official release in 7 fingerprint layers, from the TLS handshake to WebGL.
 
 **Design goals:** fully scriptable from Python, no automation traces, and every layer of an identity agrees.<br>
-**Changes:** 27 major changes for identity safety, in 13 patches. [Features](#features) · [Full list](docs/build-list.md)<br>
+**Changes:** 28 major changes, in 13 patches. [Major changes](#major-changes) · [Full list](docs/build-list.md)<br>
 **Test results:** 6/6 public bot checkers passed, and Firefox 158, 159 and 160 each show 0 differences from official. [All results](#test-results)
 
 - [Test results](#test-results)
 - [How to use](#how-to-use)
 - [Scripting](#scripting)
-- [Features](#features)
+- [Major changes](#major-changes)
 - [Build it yourself](#build-it-yourself)
 - [License](#license)
 - [Special thanks](#special-thanks)
@@ -301,27 +301,40 @@ Every setting and call in detail: [docs/scripting.md](docs/scripting.md).
 
 <br>
 
-# Features
+# Major changes
 
-| Category | Feature |
-|---|---|
-| Versions | One build, shown to websites as Firefox 158, 159 or 160; each shows 0 differences from official in the [identity lab](tests/identity) |
-| Scripting | Python drives every page, frame and shadow DOM through a private pipe, not an automation port |
-| Scripting | Mouse and keyboard use the normal input path, with human mouse paths and typing rhythm |
-| Bot detection | `navigator.webdriver` is false, and your scripts run in a sandbox the page can't see |
-| Bot detection | Pages stay focused and visible, and a driven window never takes the foreground from your program |
-| Fingerprint | 15 device values set inside the engine, such as screen, display scale, CPU cores and touch |
-| Fingerprint | This computer's GPU by default, so WebGL pixels match the GPU name pages see |
-| Fingerprint | Canvas noise key kept per profile, so a profile looks the same after restarts |
-| Proxy | HTTPS, HTTP and SOCKS5 proxies with login, pasted in any of 5 common formats |
-| Proxy | Time zone and languages follow the proxy's country |
-| Proxy | WebRTC and DNS go through the proxy; sites see 0 local addresses |
-| Proxy | Kill switch: if the proxy drops, pages stop loading instead of using your connection |
-| Profiles | Saved profiles keep device, version, cookies and logins every run; the default profile is new every run |
-| Background | Idle background connections cut from 33 addresses to 8 |
-| Install | The browser downloads itself on first use and closes when your script ends |
+One line per change that is done. Each comes from the [build list](docs/build-list.md), which also has how it was made and what is planned.
 
-Every change, with how it was made: [summary](docs/major-changes.md) · [full list](docs/build-list.md)
+| Area | Change | List |
+|---|---|---|
+| Scripting | Python controls the browser through a private pipe, not an automation port | 1.2, 1.3 |
+| Scripting | Your scripts run in a sandbox the page can't see | 1.11 |
+| Scripting | The mouse moves along a human path and clicks through the normal input path | 1.12, 3.6 |
+| Scripting | One call types a sentence or a paragraph with real keys, about 5 letters a second, in a random rhythm | 1.12 |
+| Scripting | Scrolls with the wheel like a person, and clear of sticky bars before it clicks (next release) | 1.12 |
+| Scripting | File upload: the file dialog answers at once, and the page sees a normal choice (next release) | 1.15 |
+| Scripting | Selectors reach into frames, other sites' frames included, and shadow DOM | 8.6 |
+| Scripting | Every action waits until its element is on the page and has stopped moving | 8.5 |
+| Bot detection | `navigator.webdriver` is false, in pages and workers | 3.1 |
+| Bot detection | Driven windows act as the front window, so pages never switch to hidden | 3.5 |
+| Bot detection | A driven window never takes the foreground from the program you are using | 3.5 |
+| Versions | One build shows websites Firefox 158, 159 or 160, each with 0 differences from official in the identity lab | 9.8, 10.0 |
+| Versions | A new profile picks one of the 3 at random and keeps it | 7 |
+| Fingerprint | 15 device values set inside the engine, such as screen, display scale, CPU cores and touch | 6.2, 6.5 |
+| Fingerprint | GPU name, WebGL limits and extensions match the claimed card | 6.9 |
+| Fingerprint | This computer's GPU by default, so WebGL pixels match the GPU name pages see | 6.11, 7.7 |
+| Fingerprint | Canvas noise key kept per profile, so a profile looks the same after restarts | 7.1 |
+| Fingerprint | Windows "Text size" no longer changes the display scale pages see | 6.5 |
+| Proxy | HTTPS, HTTP and SOCKS5 proxies with login, pasted in any of 5 common formats | 5.4 |
+| Proxy | HTTP proxy login is sent without a prompt | 5.4b |
+| Proxy | Time zone and languages follow the proxy's country | 5.12 |
+| Proxy | WebRTC and DNS go through the proxy; sites see 0 local addresses | 5.6, 5.9 |
+| Proxy | Kill switch: if the proxy drops, pages stop loading instead of using your connection | 5.5 |
+| Profiles | Saved profiles keep device, version, cookies and logins every run | 7 |
+| Profiles | The built-in default profile is a new random identity every run, and nothing is kept | 7 |
+| Profiles | `print(p)` shows every setting plus session history: proxies, countries, websites | 1.1 |
+| Background | Idle background connections cut from 33 addresses to 8 | 5.16 |
+| Install | The browser downloads itself on first use, never updates itself, and closes when your script ends | 10.1 |
 
 <br>
 
