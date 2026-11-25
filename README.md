@@ -27,7 +27,20 @@ Each profile can be Firefox 158, 159 or 160, identical to the official release i
 **Changes:** 13 patches to Firefox's own source code.<br>
 **Test results:** 6/6 public bot checkers passed, and Firefox 158, 159 and 160 each show 0 differences from official. [All results](#test-results)
 
-### Major changes
+# Contents
+
+- [Major changes](#major-changes)
+- [Quick start](#quick-start)
+- [Test results](#test-results)
+- [How to use](#how-to-use)
+- [Scripting](#scripting)
+- [Build it yourself](#build-it-yourself)
+- [License](#license)
+- [Special thanks](#special-thanks)
+
+<br>
+
+## Major changes
 
 - Scripting
   - Python drives the browser through a private pipe, so pages can't find it
@@ -49,40 +62,9 @@ Each profile can be Firefox 158, 159 or 160, identical to the official release i
 
 Every change, with how it was made: [full list](docs/build-list.md).
 
-### Contents
-
-- [Test results](#test-results)
-- [How to use](#how-to-use)
-- [Scripting](#scripting)
-- [Build it yourself](#build-it-yourself)
-- [License](#license)
-- [Special thanks](#special-thanks)
-
 <br>
 
-# Test results
-
-Public bot and fingerprint checkers, run on 21 November 2026 with the built-in default profile (Firefox 160) through a US residential proxy.
-
-| Checker | What it checks | Passed | |
-|---|---|:---:|:---:|
-| [BotD](https://fingerprintjs.github.io/BotD/main/) by Fingerprint | Bot detectors | 18/18 | ✅ |
-| [Device and Browser Info](https://deviceandbrowserinfo.com/are_you_a_bot) | Automation signals | 22/22 | ✅ |
-| [BrowserScan](https://www.browserscan.net/bot-detection) | Bot and automation checks | 17/17 | ✅ |
-| [Sannysoft](https://bot.sannysoft.com/) | Classic bot checks | 23/24 ¹ | ✅ |
-| [CreepJS](https://abrahamjuliot.github.io/creepjs/) | Headless and stealth score | 0% / 0% | ✅ |
-| [Pixelscan](https://pixelscan.net/fingerprint-check) | Fingerprint consistency, proxy | Consistent, no proxy seen | ✅ |
-| WebRTC leak test, in this repo | Real IP through WebRTC | 6/6 | ✅ |
-| Real proxy test, in this repo | Exit IP, WebRTC, DNS, login | 10/11 ² | ⚠️ |
-
-<sub>¹ The one miss is "Chrome object", a Chrome-only check that every Firefox fails.<br>
-² DNS servers show Singapore next to a US exit; the proxy provider's entry server does the lookups.</sub>
-
-<br>
-
-# How to use
-
-### Download and install
+## Quick start
 
 All you need is a Windows 10 or 11 PC (64-bit) and Python. The browser itself installs on its own.
 
@@ -111,6 +93,30 @@ All you need is a Windows 10 or 11 PC (64-bit) and Python. The browser itself in
 
 The first run downloads the browser (130 MB) and checks it; after that it starts in about 2 seconds.
 [Scripting](#scripting) shows what to put in your script.
+
+<br>
+
+## Test results
+
+Public bot and fingerprint checkers, run on 21 November 2026 with the built-in default profile (Firefox 160) through a US residential proxy.
+
+| Checker | What it checks | Passed | |
+|---|---|:---:|:---:|
+| [BotD](https://fingerprintjs.github.io/BotD/main/) by Fingerprint | Bot detectors | 18/18 | ✅ |
+| [Device and Browser Info](https://deviceandbrowserinfo.com/are_you_a_bot) | Automation signals | 22/22 | ✅ |
+| [BrowserScan](https://www.browserscan.net/bot-detection) | Bot and automation checks | 17/17 | ✅ |
+| [Sannysoft](https://bot.sannysoft.com/) | Classic bot checks | 23/24 ¹ | ✅ |
+| [CreepJS](https://abrahamjuliot.github.io/creepjs/) | Headless and stealth score | 0% / 0% | ✅ |
+| [Pixelscan](https://pixelscan.net/fingerprint-check) | Fingerprint consistency, proxy | Consistent, no proxy seen | ✅ |
+| WebRTC leak test, in this repo | Real IP through WebRTC | 6/6 | ✅ |
+| Real proxy test, in this repo | Exit IP, WebRTC, DNS, login | 10/11 ² | ⚠️ |
+
+<sub>¹ The one miss is "Chrome object", a Chrome-only check that every Firefox fails.<br>
+² DNS servers show Singapore next to a US exit; the proxy provider's entry server does the lookups.</sub>
+
+<br>
+
+## How to use
 
 ### Manage profiles
 
@@ -163,7 +169,7 @@ with Browser(version="158", device="i5-1135g7-laptop") as b: ...   # fix any set
 print(profile.default())                                        # what one use of it looks like
 ```
 
-# Scripting
+## Scripting
 
 A script is a Python file. Each line does one thing a person would do: open a page, click, type, read.
 Every example here runs as it is: save it as a `.py` file and run `python yourfile.py`.
@@ -330,7 +336,7 @@ Every setting and call in detail: [docs/scripting.md](docs/scripting.md).
 
 <br>
 
-# Build it yourself
+## Build it yourself
 
 Only needed to change the browser itself. It takes about 90 minutes, in `D:\ifox`:
 
@@ -343,7 +349,7 @@ python scripts/build.py package         # make the release zip
 
 <br>
 
-# License
+## License
 
 <div align="center">
 
@@ -355,7 +361,7 @@ MPL 2.0 &nbsp;·&nbsp; Not made or endorsed by Mozilla &nbsp;·&nbsp; <a href="N
 
 <br>
 
-# Special thanks
+## Special thanks
 
 - My $50 and 10 hours of my life.
 - Claude Opus 5.5 (High), for its reasonable price and coding that keeps getting better, alongside Jensen Huang's great GPUs and the electricity company that made this happen.
